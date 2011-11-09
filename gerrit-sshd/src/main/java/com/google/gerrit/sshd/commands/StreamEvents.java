@@ -14,8 +14,8 @@
 
 package com.google.gerrit.sshd.commands;
 
-import com.google.gerrit.common.ChangeHookRunner;
-import com.google.gerrit.common.ChangeListener;
+import com.google.gerrit.common.EventHookRunner;
+import com.google.gerrit.common.EventListener;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.events.ChangeEvent;
 import com.google.gerrit.server.git.WorkQueue;
@@ -43,7 +43,7 @@ final class StreamEvents extends BaseCommand {
   private IdentifiedUser currentUser;
 
   @Inject
-  private ChangeHookRunner hooks;
+  private EventHookRunner hooks;
 
   @Inject
   @StreamCommandExecutor
@@ -61,7 +61,7 @@ final class StreamEvents extends BaseCommand {
     final String type = "dropped-output";
   };
 
-  private final ChangeListener listener = new ChangeListener() {
+  private final EventListener listener = new EventListener() {
     @Override
     public void onChangeEvent(final ChangeEvent event) {
       offer(event);

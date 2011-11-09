@@ -14,7 +14,7 @@
 
 package com.google.gerrit.sshd.commands;
 
-import com.google.gerrit.common.ChangeHookRunner;
+import com.google.gerrit.common.EventHookRunner;
 import com.google.gerrit.common.data.ApprovalType;
 import com.google.gerrit.common.data.ApprovalTypes;
 import com.google.gerrit.common.data.SubmitRecord;
@@ -131,7 +131,7 @@ public class ReviewCommand extends BaseCommand {
   private RestoredSender.Factory restoredSenderFactory;
 
   @Inject
-  private ChangeHookRunner hooks;
+  private EventHookRunner hooks;
 
   private List<ApproveOption> optionList;
 
