@@ -14,7 +14,7 @@
 
 package com.google.gerrit.httpd.rpc.topic;
 
-import com.google.gerrit.common.ChangeHookRunner;
+import com.google.gerrit.common.EventHookRunner;
 import com.google.gerrit.common.data.TopicDetail;
 import com.google.gerrit.common.errors.NoSuchEntityException;
 import com.google.gerrit.httpd.rpc.Handler;
@@ -50,7 +50,7 @@ class AbandonTopic extends Handler<TopicDetail> {
   @Nullable
   private final String message;
 
-  private final ChangeHookRunner hooks;
+  private final EventHookRunner hooks;
 
   @Inject
   AbandonTopic(final TopicControl.Factory topicControlFactory,
@@ -58,7 +58,7 @@ class AbandonTopic extends Handler<TopicDetail> {
       final AbandonedSender.Factory abandonedSenderFactory,
       final TopicDetailFactory.Factory topicDetailFactory,
       @Assisted final ChangeSet.Id changeSetId,
-      @Assisted @Nullable final String message, final ChangeHookRunner hooks) {
+      @Assisted @Nullable final String message, final EventHookRunner hooks) {
     this.db = db;
     this.currentUser = currentUser;
     this.abandonedSenderFactory = abandonedSenderFactory;
