@@ -161,6 +161,7 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
   private Map<ObjectId, Ref> refsById;
 
   private String destTopicName;
+  private Topic topic;
 
   @Inject
   ReceiveCommits(final ReviewDb db, final ApprovalTypes approvalTypes,
@@ -406,6 +407,9 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
       }
       rp.sendMessage("");
     }
+
+    if(topic != null)
+      doTopicNotification(topic);
   }
 
   private Account.Id toAccountId(final String nameOrEmail) throws OrmException,
@@ -969,7 +973,7 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
       return;
     }
 
-    Topic t = null;
+    topic = null;
     Topic.Id topicId = null;
     if (topicSetting) {
       try {
@@ -989,15 +993,15 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
             revIdAncestors.add(r.getName());
         }
 
-        t = TopicUtil.findActiveTopic(destTopicName, db, destBranch,
+        topic = TopicUtil.findActiveTopic(destTopicName, db, destBranch,
             project.getNameKey());
-        if (t != null) {
-          if (t.getStatus().equals(AbstractEntity.Status.SUBMITTED)) {
+        if (topic != null) {
+          if (topic.getStatus().equals(AbstractEntity.Status.SUBMITTED)) {
             reject(newChange, "There is a topic with the same topic name in SUBMITTED status");
             return;
           }
-          topicId = t.getId();
-          previousCs = new ChangeSet.Id(topicId, t.currChangeSetId().get());
+          topicId = topic.getId();
+          previousCs = new ChangeSet.Id(topicId, topic.currChangeSetId().get());
           currentChangeSetElements = db.changeSetElements().byChangeSet(previousCs).toList();
         }
 
@@ -1028,11 +1032,11 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
               if (!byChangeId.containsKey(c.getId())) toAbandon.add(c);
             }
           }
-          if (t == null) {
+          if (topic == null) {
             // This is the first push to this topic, we need to create it
             //
-            t = TopicUtil.createTopic(currentUser.getAccountId(), db, destTopicName, destBranch, message);
-            topicId = t.getId();
+            topic = TopicUtil.createTopic(currentUser.getAccountId(), db, destTopicName, destBranch, message);
+            topicId = topic.getId();
 
             // Show info in the command line
             //
@@ -1048,12 +1052,12 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
                       "Please, abandon this topic or create a new one");
               return;
             }
-            t = TopicUtil.setUpTopic(t, db, currentUser.getAccountId());
+            topic = TopicUtil.setUpTopic(topic, db, currentUser.getAccountId());
 
             // Show info in the command line
             //
             rp.sendMessage("");
-            rp.sendMessage("New ChangeSet (" + t.currentChangeSetId().get() + ") in topic " + topicId);
+            rp.sendMessage("New ChangeSet (" + topic.currentChangeSetId().get() + ") in topic " + topicId);
           }
         } else {
           // That means that there were no additions or replacements
@@ -1072,15 +1076,15 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
           Collections.reverse(toUpdate);
           Collections.reverse(toAbandon);
           if (!toAbandon.isEmpty()) {
-            t = TopicUtil.setUpTopic(t, db, currentUser.getAccountId());
-            topicId = t.getId();
+            topic = TopicUtil.setUpTopic(topic, db, currentUser.getAccountId());
+            topicId = topic.getId();
           } else {
             reject(newChange, "No new changes");
             return;
           }
         }
         if (!toUpdate.isEmpty())
-          updateChangeSetId(toUpdate, t.currentChangeSetId());
+          updateChangeSetId(toUpdate, topic.currentChangeSetId());
       } catch (OrmException e) {
         log.error("Error creating Topic " + destTopicName + " for commit set.", e);
         reject(newChange, "database error");
@@ -1093,18 +1097,18 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
     //
     for (Change c : toReplace.keySet()) {
       final int position = cOrder.indexOf(toReplace.get(c)) + toUpdate.size();
-      if (requestReplace(newChange, false, c, toReplace.get(c), t, position)) {
+      if (requestReplace(newChange, false, c, toReplace.get(c), topic, position)) {
         continue;
       } else {
-        if (t != null) restoreOnTopicError(t);
+        if (topic != null) restoreOnTopicError(topic);
         return;
       }
     }
 
     ChangeSet.Id csid = null;
     boolean addTopicApproval = false;
-    if (t != null) {
-      csid = t.currentChangeSetId();
+    if (topic != null) {
+      csid = topic.currentChangeSetId();
       addTopicApproval = true;
     }
     for (final RevCommit c : toCreate) {
@@ -1115,12 +1119,12 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
       } catch (IOException e) {
         log.error("Error computing patch of commit " + c.name(), e);
         reject(newChange, "diff error");
-        if (t != null) restoreOnTopicError(t);
+        if (topic != null) restoreOnTopicError(topic);
         return;
       } catch (OrmException e) {
         log.error("Error creating change for commit " + c.name(), e);
         reject(newChange, "database error");
-        if (t != null) restoreOnTopicError(t);
+        if (topic != null) restoreOnTopicError(topic);
         return;
       }
     }
@@ -1134,19 +1138,19 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
         // Show info in the command line
         //
         rp.sendMessage("Change " + c.getId().get() +
-            " (belonging to the changeset " + t.currentChangeSetId().get() +
+            " (belonging to the changeset " + topic.currentChangeSetId().get() +
             ") in topic " + topicId + " abandoned");
       } catch (NoSuchChangeException e) {
         reject(newChange, "Problem when abandoning change " + c.getId());
-        restoreOnTopicError(t);
+        restoreOnTopicError(topic);
         return;
       } catch (InvalidChangeOperationException e) {
         reject(newChange, "Problem when abandoning change " + c.getId());
-        restoreOnTopicError(t);
+        restoreOnTopicError(topic);
         return;
       } catch (OrmException e) {
         reject(newChange, "Problem when abandoning change " + c.getId());
-        restoreOnTopicError(t);
+        restoreOnTopicError(topic);
         return;
       } catch (EmailException e) {
         log.error("Cannot send email for abandoned topic " + topicId.get(), e);
@@ -1155,9 +1159,9 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
 
     // Create the topic reference
     //
-    if (t != null) {
+    if (topic != null) {
       try {
-        final ChangeSet cs = db.changeSets().get(t.currChangeSetId());
+        final ChangeSet cs = db.changeSets().get(topic.currChangeSetId());
         final RefUpdate ru = repo.updateRef(cs.getRefName());
         ru.setNewObjectId(lastIncluded);
         ru.disableRefLog();
@@ -2285,5 +2289,36 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
 
   private static boolean isConfig(final ReceiveCommand cmd) {
     return cmd.getRefName().equals(GitRepositoryManager.REF_CONFIG);
+  }
+
+  private void doTopicNotification(final Topic t) {
+    try
+    {
+      final ChangeSet cs = db.changeSets().get(t.currChangeSetId());
+
+      // we need to find the RevId for the last patchset of the changeset ( the tip of the topic )
+      List<ChangeSetElement> currentChangeSetElements = db.changeSetElements().byChangeSet(t.currChangeSetId()).toList();
+
+      if(currentChangeSetElements.size() == 0)
+      {
+        currentChangeSetElements = db.changeSetElements().byChangeSet(t.currentChangeSetId()).toList();
+      }
+
+      RevId rev = null;
+
+      if(currentChangeSetElements.size() > 0)
+      {
+        Change.Id lastChange = currentChangeSetElements.get(currentChangeSetElements.size()-1).getChangeId();
+        List<PatchSet> patchSets = db.patchSets().byChange(lastChange).toList();
+        PatchSet lastPatchSet = patchSets.get(patchSets.size()-1);
+        rev = lastPatchSet.getRevision();
+      }
+
+      hooks.doChangesetCreatedHook(t, db.changeSets().get(t.currentChangeSetId()), rev);
+
+    } catch (OrmException e) {
+      // TODO Auto-generated catch block
+      log.error("Cannot send changeset event for topic " + t.getId(), e);
+    }
   }
 }

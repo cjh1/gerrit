@@ -22,8 +22,11 @@ import com.google.gerrit.reviewdb.ApprovalCategoryValue;
 import com.google.gerrit.reviewdb.Branch;
 import com.google.gerrit.reviewdb.Change;
 import com.google.gerrit.reviewdb.ContributorAgreement;
+import com.google.gerrit.reviewdb.ChangeSet;
 import com.google.gerrit.reviewdb.PatchSet;
 import com.google.gerrit.reviewdb.Project;
+import com.google.gerrit.reviewdb.RevId;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.account.AccountCache;
 import com.google.gerrit.server.account.AccountState;
@@ -34,10 +37,12 @@ import com.google.gerrit.server.events.ChangeAbandonedEvent;
 import com.google.gerrit.server.events.ChangeEvent;
 import com.google.gerrit.server.events.ChangeMergedEvent;
 import com.google.gerrit.server.events.ChangeRestoreEvent;
+import com.google.gerrit.server.events.ChangeSetCreatedEvent;
 import com.google.gerrit.server.events.CommentAddedEvent;
 import com.google.gerrit.server.events.EventFactory;
 import com.google.gerrit.server.events.PatchSetCreatedEvent;
 import com.google.gerrit.server.events.RefUpdatedEvent;
+import com.google.gerrit.server.events.TopicEvent;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.git.WorkQueue;
 import com.google.gerrit.server.project.ProjectCache;
@@ -88,6 +93,9 @@ public class EventHookRunner {
 
     /** Filename of the new patchset hook. */
     private final File patchsetCreatedHook;
+
+    /** Filename of the new changeset hook. */
+    private final File changesetCreatedHook;
 
     /** Filename of the new comments hook. */
     private final File commentAddedHook;
@@ -148,6 +156,7 @@ public class EventHookRunner {
         final File hooksPath = sitePath.resolve(getValue(config, "hooks", "path", sitePath.hooks_dir.getAbsolutePath()));
 
         patchsetCreatedHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "patchsetCreatedHook", "patchset-created")).getPath());
+        changesetCreatedHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "changesetCreatedHook", "changeset-created")).getPath());
         commentAddedHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "commentAddedHook", "comment-added")).getPath());
         changeMergedHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "changeMergedHook", "change-merged")).getPath());
         changeAbandonedHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "changeAbandonedHook", "change-abandoned")).getPath());
@@ -186,6 +195,16 @@ public class EventHookRunner {
      */
     private Repository openRepository(final Change change) {
         return openRepository(change.getProject());
+    }
+
+    /**
+     * Get the Repository for the given topic, or null on error.
+     *
+     * @param topic Topic to get repo for,
+     * @return Repository or null.
+     */
+    private Repository openRepository(final Topic topic) {
+        return openRepository(topic.getProject());
     }
 
     /**
@@ -235,6 +254,32 @@ public class EventHookRunner {
         addArg(args, "--patchset", event.patchSet.number);
 
         runHook(openRepository(change), patchsetCreatedHook, args);
+    }
+
+    /**
+     * Fire the Changeset Created Hook.
+     *
+     * @param topic The topic itself.
+     * @param changeSet The Changeset that was created.
+     */
+    public void doChangesetCreatedHook(final Topic topic, final ChangeSet changeSet, final RevId revision) {
+        final ChangeSetCreatedEvent event = new ChangeSetCreatedEvent();
+        final AccountState uploader = accountCache.get(changeSet.getUploader());
+
+        event.topic = eventFactory.asTopicAttribute(topic);
+        event.changeSet = eventFactory.asChangeSetAttribute(changeSet, revision);
+        event.uploader = eventFactory.asAccountAttribute(uploader.getAccount());
+        fireEvent(topic, event);
+
+        final List<String> args = new ArrayList<String>();
+        addArg(args, "--topic", event.topic.id);
+        addArg(args, "--topic-url", event.topic.url);
+        addArg(args, "--project", event.topic.project);
+        addArg(args, "--branch", event.topic.branch);
+        addArg(args, "--uploader", getDisplayName(uploader.getAccount()));
+        addArg(args, "--changeset", event.changeSet.number);
+
+        runHook(openRepository(topic), changesetCreatedHook, args);
     }
 
     /**
@@ -414,6 +459,15 @@ public class EventHookRunner {
       }
     }
 
+    private void fireEvent(final Topic change, final TopicEvent event) {
+      for (EventListenerHolder holder : listeners.values()) {
+          if (isVisibleTo(change, holder.user)) {
+              holder.listener.onTopicEvent(event);
+          }
+      }
+    }
+
+
     private void fireEvent(Branch.NameKey branchName, final ChangeEvent event) {
       for (EventListenerHolder holder : listeners.values()) {
           if (isVisibleTo(branchName, holder.user)) {
@@ -439,6 +493,15 @@ public class EventHookRunner {
         final ProjectControl pc = pe.controlFor(user);
         return pc.controlForRef(branchName).isVisible();
     }
+
+    private boolean isVisibleTo(Topic change, IdentifiedUser user) {
+      final ProjectState pe = projectCache.get(change.getProject());
+      if (pe == null) {
+        return false;
+      }
+      final ProjectControl pc = pe.controlFor(user);
+      return pc.controlFor(change).isVisible();
+  }
 
     /**
      * Create an ApprovalAttribute for the given approval suitable for serialization to JSON.
