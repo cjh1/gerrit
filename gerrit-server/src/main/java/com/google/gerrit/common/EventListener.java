@@ -15,8 +15,11 @@
 package com.google.gerrit.common;
 
 import com.google.gerrit.server.events.ChangeEvent;
+import com.google.gerrit.server.events.TopicEvent;
 
 
 public interface EventListener {
     public void onChangeEvent(ChangeEvent event);
+
+    public void onTopicEvent(TopicEvent event);
 }

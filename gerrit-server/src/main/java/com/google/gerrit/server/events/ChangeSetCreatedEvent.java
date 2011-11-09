@@ -1,4 +1,4 @@
-// Copyright (C) 2010 The Android Open Source Project
+// Copyright (C) 2011 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,5 +14,9 @@
 
 package com.google.gerrit.server.events;
 
-public abstract class ChangeEvent extends Event {
+public class ChangeSetCreatedEvent extends TopicEvent {
+    public final String type = "changeset-created";
+    public TopicAttribute topic;
+    public ChangeSetAttribute changeSet;
+    public AccountAttribute uploader;
 }
