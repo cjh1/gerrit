@@ -16,6 +16,8 @@ package com.google.gerrit.client.changes;
 
 import com.google.gerrit.client.Dispatcher;
 import com.google.gerrit.client.Gerrit;
+import com.google.gerrit.client.common.ApprovalTable;
+import com.google.gerrit.client.common.IncludedInTable;
 import com.google.gerrit.client.rpc.GerritCallback;
 import com.google.gerrit.client.rpc.ScreenLoadCallback;
 import com.google.gerrit.client.ui.CommentPanel;

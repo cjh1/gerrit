@@ -16,6 +16,8 @@ package com.google.gerrit.client.changes;
 
 import com.google.gerrit.client.Dispatcher;
 import com.google.gerrit.client.Gerrit;
+import com.google.gerrit.client.common.CommentedChangeActionDialog;
+import com.google.gerrit.client.common.CommonComplexDisclosurePanel;
 import com.google.gerrit.client.rpc.GerritCallback;
 import com.google.gerrit.client.ui.ListenableAccountDiffPreference;
 import com.google.gerrit.common.data.ChangeDetail;

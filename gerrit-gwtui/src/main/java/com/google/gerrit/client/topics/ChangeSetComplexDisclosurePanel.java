@@ -12,11 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.changes;
+package com.google.gerrit.client.topics;
 
 import com.google.gerrit.client.Dispatcher;
 import com.google.gerrit.client.Gerrit;
+import com.google.gerrit.client.changes.ChangeTable;
+import com.google.gerrit.client.changes.SubmitFailureDialog;
 import com.google.gerrit.client.changes.ChangeTable.ApprovalViewType;
+import com.google.gerrit.client.changes.ChangeTable.Section;
+import com.google.gerrit.client.common.CommentedChangeActionDialog;
+import com.google.gerrit.client.common.CommonComplexDisclosurePanel;
 import com.google.gerrit.client.rpc.GerritCallback;
 import com.google.gerrit.client.ui.Hyperlink;
 import com.google.gerrit.common.data.ChangeInfo;
@@ -176,7 +181,7 @@ class ChangeSetComplexDisclosurePanel extends CommonComplexDisclosurePanel {
         @Override
         public void onClick(final ClickEvent event) {
           b.setEnabled(false);
-          Util.T_MANAGE_SVC.submit(changeSet.getId(),
+          com.google.gerrit.client.topics.Util.T_MANAGE_SVC.submit(changeSet.getId(),
               new GerritCallback<TopicDetail>() {
                 public void onSuccess(TopicDetail result) {
                   onSubmitResult(result);
@@ -206,7 +211,7 @@ class ChangeSetComplexDisclosurePanel extends CommonComplexDisclosurePanel {
               Util.TM.revertTopicDefaultMessage(topicDetail.getTopic().getTopic(),
                   topicDetail.getTopic().getId().get(), changeSet.getId().get())) {
                 public void onSend() {
-                  Util.T_MANAGE_SVC.revertTopic(getChangeSetId() , getMessageText(), createCallback());
+                  com.google.gerrit.client.topics.Util.T_MANAGE_SVC.revertTopic(getChangeSetId() , getMessageText(), createCallback());
                 }
               }.center();
         }
@@ -225,7 +230,7 @@ class ChangeSetComplexDisclosurePanel extends CommonComplexDisclosurePanel {
               Util.TC.buttonAbandonTopicSend(), Util.TC.buttonAbandonTopicCancel(),
               Gerrit.RESOURCES.css().abandonChangeDialog(), Gerrit.RESOURCES.css().abandonMessage()) {
                 public void onSend() {
-                  Util.T_MANAGE_SVC.abandonTopic(getChangeSetId() , getMessageText(), createCallback());
+                  com.google.gerrit.client.topics.Util.T_MANAGE_SVC.abandonTopic(getChangeSetId() , getMessageText(), createCallback());
                 }
               }.center();
         }
@@ -244,7 +249,7 @@ class ChangeSetComplexDisclosurePanel extends CommonComplexDisclosurePanel {
               Util.TC.buttonRestoreTopicSend(), Util.TC.buttonRestoreTopicCancel(),
               Gerrit.RESOURCES.css().abandonChangeDialog(), Gerrit.RESOURCES.css().abandonMessage()) {
                 public void onSend() {
-                  Util.T_MANAGE_SVC.restoreTopic(getChangeSetId(), getMessageText(), createCallback());
+                  com.google.gerrit.client.topics.Util.T_MANAGE_SVC.restoreTopic(getChangeSetId(), getMessageText(), createCallback());
                 }
               }.center();
         }
@@ -265,7 +270,7 @@ class ChangeSetComplexDisclosurePanel extends CommonComplexDisclosurePanel {
   }
 
   public void refresh() {
-    Util.T_DETAIL_SVC.changeSetDetail(changeSet.getId(),
+    com.google.gerrit.client.topics.Util.T_DETAIL_SVC.changeSetDetail(changeSet.getId(),
         new GerritCallback<ChangeSetDetail>() {
           @Override
           public void onSuccess(ChangeSetDetail result) {
@@ -288,7 +293,7 @@ class ChangeSetComplexDisclosurePanel extends CommonComplexDisclosurePanel {
   @Override
   public void onOpen(final OpenEvent<DisclosurePanel> event) {
     if (infoTable == null) {
-      Util.T_DETAIL_SVC.changeSetDetail(changeSet.getId(),
+      com.google.gerrit.client.topics.Util.T_DETAIL_SVC.changeSetDetail(changeSet.getId(),
           new GerritCallback<ChangeSetDetail>() {
             public void onSuccess(final ChangeSetDetail result) {
               ensureLoaded(result);
