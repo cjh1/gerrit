@@ -20,9 +20,12 @@ import com.google.gerrit.reviewdb.Account;
 import com.google.gerrit.reviewdb.Branch;
 import com.google.gerrit.reviewdb.Change;
 import com.google.gerrit.reviewdb.ChangeMessage;
+import com.google.gerrit.reviewdb.ChangeSet;
 import com.google.gerrit.reviewdb.PatchLineComment;
 import com.google.gerrit.reviewdb.PatchSet;
 import com.google.gerrit.reviewdb.PatchSetApproval;
+import com.google.gerrit.reviewdb.RevId;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.reviewdb.TrackingId;
 import com.google.gerrit.server.account.AccountCache;
 import com.google.gerrit.server.config.CanonicalWebUrl;
@@ -70,6 +73,26 @@ public class EventFactory {
     a.subject = change.getSubject();
     a.url = getChangeUrl(change);
     a.owner = asAccountAttribute(change.getOwner());
+    return a;
+  }
+
+  /**
+   * Create a TopicAttribute for the given topic suitable for serialization to
+   * JSON.
+   *
+   * @param topic
+   * @return object suitable for serialization to JSON
+   */
+  public TopicAttribute asTopicAttribute(final Topic topic) {
+    TopicAttribute a = new TopicAttribute();
+    a.project = topic.getProject().get();
+    a.branch = topic.getDest().getShortName();
+    a.name = topic.getTopic();
+    a.id = topic.getKey().get();
+    a.number = topic.getId().toString();
+    a.subject = topic.getSubject();
+    a.url = getTopicUrl(topic);
+    a.owner = asAccountAttribute(topic.getOwner());
     return a;
   }
 
@@ -179,6 +202,27 @@ public class EventFactory {
     return p;
   }
 
+  /**
+   * Create a ChangeSetAttribute for the given changeset suitable for
+   * serialization to JSON.
+   *
+   * @param changeSet
+   * @return object suitable for serialization to JSON
+   */
+  public ChangeSetAttribute asChangeSetAttribute(final ChangeSet changeSet, final RevId revision) {
+    ChangeSetAttribute p = new ChangeSetAttribute();
+    if(revision != null)
+      p.revision = revision.get();
+    else
+      p.revision = "";
+    p.number = Integer.toString(changeSet.getChangeSetId());
+    p.ref = changeSet.getRefName();
+    p.uploader = asAccountAttribute(changeSet.getUploader());
+    p.createdOn = changeSet.getCreatedOn().getTime() / 1000L;
+    return p;
+  }
+
+
   public void addApprovals(PatchSetAttribute p, PatchSet.Id id,
       Map<PatchSet.Id,Collection<PatchSetApproval>> all) {
     Collection<PatchSetApproval> list = all.get(id);
@@ -274,5 +318,20 @@ public class EventFactory {
       return r.toString();
     }
     return null;
+  }
+
+  /** Get a link to the topic; null if the server doesn't know its own address. */
+  private String getTopicUrl(final Topic topic) {
+    String topicUrl = null;
+
+    if (topic != null && urlProvider.get() != null) {
+      final StringBuilder r = new StringBuilder();
+      r.append(urlProvider.get());
+      r.append("#/t/");
+      r.append(topic.getTopicId());
+      topicUrl = r.toString();
+    }
+
+    return topicUrl;
   }
 }
