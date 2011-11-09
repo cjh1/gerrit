@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.changes;
+package com.google.gerrit.client.topics;
 
 import com.google.gerrit.client.Gerrit;
 import com.google.gerrit.client.patches.CommentEditorContainer;
@@ -127,7 +127,7 @@ public class PublishTopicCommentScreen extends AccountScreen implements
   @Override
   protected void onLoad() {
     super.onLoad();
-    Util.T_DETAIL_SVC.changeSetPublishDetail(changeSetId,
+    com.google.gerrit.client.topics.Util.T_DETAIL_SVC.changeSetPublishDetail(changeSetId,
         new ScreenLoadCallback<ChangeSetPublishDetail>(this) {
           @Override
           protected void preDisplay(final ChangeSetPublishDetail result) {
@@ -263,7 +263,7 @@ public class PublishTopicCommentScreen extends AccountScreen implements
     }
 
     enableForm(false);
-    Util.T_DETAIL_SVC.publishComments(changeSetId, message.getText().trim(),
+    com.google.gerrit.client.topics.Util.T_DETAIL_SVC.publishComments(changeSetId, message.getText().trim(),
         new HashSet<ApprovalCategoryValue.Id>(values.values()),
         new GerritCallback<VoidResult>() {
           public void onSuccess(final VoidResult result) {
@@ -284,7 +284,7 @@ public class PublishTopicCommentScreen extends AccountScreen implements
   }
 
   private void submit() {
-    Util.T_MANAGE_SVC.submit(changeSetId,
+    com.google.gerrit.client.topics.Util.T_MANAGE_SVC.submit(changeSetId,
         new GerritCallback<TopicDetail>() {
           public void onSuccess(TopicDetail result) {
             saveStateOnUnload = false;

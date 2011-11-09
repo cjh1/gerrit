@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.changes;
+package com.google.gerrit.client.common;
 
 import com.google.gerrit.client.ConfirmationCallback;
 import com.google.gerrit.client.ConfirmationDialog;
 import com.google.gerrit.client.ErrorDialog;
 import com.google.gerrit.client.FormatUtil;
 import com.google.gerrit.client.Gerrit;
+import com.google.gerrit.client.changes.Util;
 import com.google.gerrit.client.patches.PatchUtil;
 import com.google.gerrit.client.rpc.GerritCallback;
 import com.google.gerrit.client.ui.AccountDashboardLink;
@@ -141,7 +142,7 @@ public class ApprovalTable extends Composite {
     return AccountDashboardLink.link(accountCache, id);
   }
 
-  void display(ChangeDetail detail) {
+  public void display(ChangeDetail detail) {
     reviewerSuggestOracle.setProject(detail.getChange().getProject());
     List<PatchSetApprovalDetail> rows = detail.getApprovals();
     changeId = detail.getChange().getId();
@@ -149,7 +150,7 @@ public class ApprovalTable extends Composite {
     display(detail.getChange().isMergeable(), rows, detail.getSubmitRecords());
   }
 
-  void display(TopicDetail detail) {
+  public void display(TopicDetail detail) {
     reviewerSuggestOracle.setProject(detail.getTopic().getProject());
     List<ChangeSetApprovalDetail> rows = detail.getApprovals();
     topicId = detail.getTopic().getId();
@@ -315,7 +316,7 @@ public class ApprovalTable extends Composite {
           }
       });
     } else if ((topicId != null) && (changeId == null)) {
-      Util.T_DETAIL_SVC.addTopicReviewers(topicId, reviewers, confirmed, new GerritCallback<TopicReviewerResult>() {
+      com.google.gerrit.client.topics.Util.T_DETAIL_SVC.addTopicReviewers(topicId, reviewers, confirmed, new GerritCallback<TopicReviewerResult>() {
         public void onSuccess(final TopicReviewerResult result) {
           addMemberBox.setEnabled(true);
           addMemberBox.setText("");
@@ -493,7 +494,7 @@ public class ApprovalTable extends Composite {
       }
     });
     else if ((topicId != null) && (changeId == null))
-      Util.T_DETAIL_SVC.removeTopicReviewer(topicId, aId,
+      com.google.gerrit.client.topics.Util.T_DETAIL_SVC.removeTopicReviewer(topicId, aId,
           new GerritCallback<TopicReviewerResult>() {
       @Override
       public void onSuccess(TopicReviewerResult result) {

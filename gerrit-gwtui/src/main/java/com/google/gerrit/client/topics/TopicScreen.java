@@ -12,9 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.changes;
+package com.google.gerrit.client.topics;
 
 import com.google.gerrit.client.Gerrit;
+import com.google.gerrit.client.changes.ChangeTable;
+import com.google.gerrit.client.changes.Util;
+import com.google.gerrit.client.changes.ChangeTable.Section;
+import com.google.gerrit.client.common.ApprovalTable;
+import com.google.gerrit.client.common.IncludedInTable;
 import com.google.gerrit.client.rpc.ScreenLoadCallback;
 import com.google.gerrit.client.ui.CommentPanel;
 import com.google.gerrit.client.ui.ExpandAllCommand;
@@ -138,7 +143,7 @@ public class TopicScreen extends Screen {
   }
 
   public void refresh() {
-    Util.T_DETAIL_SVC.topicDetail(topicId,
+    com.google.gerrit.client.topics.Util.T_DETAIL_SVC.topicDetail(topicId,
         new ScreenLoadCallback<TopicDetail>(this) {
           @Override
           protected void preDisplay(final TopicDetail r) {
@@ -226,9 +231,9 @@ public class TopicScreen extends Screen {
         titleBuf.append(subject);
         titleBuf.append(" :");
       }
-      titleBuf.append(Util.TM.topicScreenTitleId(topicId.abbreviate()));
+      titleBuf.append(com.google.gerrit.client.topics.Util.TM.topicScreenTitleId(topicId.abbreviate()));
     } else {
-      titleBuf.append(Util.TM.topicScreenTitleId(topicId.abbreviate()));
+      titleBuf.append(com.google.gerrit.client.topics.Util.TM.topicScreenTitleId(topicId.abbreviate()));
       if (subject != null) {
         titleBuf.append(": ");
         titleBuf.append(subject);
@@ -265,7 +270,7 @@ public class TopicScreen extends Screen {
 
     for (ChangeSet cId : detail.getChangeSets()) {
       if (changesList != null) {
-        changesList.addItem(Util.TM.changeSetHeader(cId.getChangeSetId()), cId
+        changesList.addItem(com.google.gerrit.client.topics.Util.TM.changeSetHeader(cId.getChangeSetId()), cId
             .getId().toString());
       }
     }

@@ -21,13 +21,13 @@ import com.google.gerrit.reviewdb.ChangeMessage;
 import com.google.gerrit.reviewdb.TopicMessage;
 import com.google.gwtexpui.safehtml.client.SafeHtmlBuilder;
 
-class SubmitFailureDialog extends ErrorDialog {
+public class SubmitFailureDialog extends ErrorDialog {
   SubmitFailureDialog(final ChangeDetail result, final ChangeMessage msg) {
     super(new SafeHtmlBuilder().append(msg.getMessage().trim()).wikify());
     setText(Util.C.submitFailed());
   }
 
-  SubmitFailureDialog(final TopicDetail result, final TopicMessage msg) {
+  public SubmitFailureDialog(final TopicDetail result, final TopicMessage msg) {
     super(new SafeHtmlBuilder().append(msg.getMessage().trim()).wikify());
     setText(Util.C.submitFailed());
   }
