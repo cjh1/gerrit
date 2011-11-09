@@ -17,6 +17,6 @@ package com.google.gerrit.common;
 import com.google.gerrit.server.events.ChangeEvent;
 
 
-public interface ChangeListener {
+public interface EventListener {
     public void onChangeEvent(ChangeEvent event);
 }

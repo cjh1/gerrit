@@ -17,7 +17,7 @@ package com.google.gerrit.server.git;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-import com.google.gerrit.common.ChangeHookRunner;
+import com.google.gerrit.common.EventHookRunner;
 import com.google.gerrit.common.data.ApprovalType;
 import com.google.gerrit.common.data.ApprovalTypes;
 import com.google.gerrit.common.data.Capable;
@@ -161,7 +161,7 @@ public class MergeOp {
   private Set<RevCommit> alreadyAccepted;
   private RefUpdate branchUpdate;
 
-  private final ChangeHookRunner hooks;
+  private final EventHookRunner hooks;
   private final AccountCache accountCache;
   private final TagCache tagCache;
   private final CreateCodeReviewNotes.Factory codeReviewNotesFactory;
@@ -177,7 +177,7 @@ public class MergeOp {
       final ChangeControl.GenericFactory changeControlFactory,
       @GerritPersonIdent final PersonIdent myIdent,
       final MergeQueue mergeQueue, @Assisted final Branch.NameKey branch,
-      final ChangeHookRunner hooks, final AccountCache accountCache,
+      final EventHookRunner hooks, final AccountCache accountCache,
       final TagCache tagCache, final CreateCodeReviewNotes.Factory crnf) {
     repoManager = grm;
     schemaFactory = sf;

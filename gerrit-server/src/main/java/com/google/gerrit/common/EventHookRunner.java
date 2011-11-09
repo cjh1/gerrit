@@ -68,23 +68,23 @@ import java.util.concurrent.ConcurrentHashMap;
  * This class implements hooks for certain gerrit events.
  */
 @Singleton
-public class ChangeHookRunner {
+public class EventHookRunner {
     /** A logger for this class. */
-    private static final Logger log = LoggerFactory.getLogger(ChangeHookRunner.class);
+    private static final Logger log = LoggerFactory.getLogger(EventHookRunner.class);
 
-    private static class ChangeListenerHolder {
-        final ChangeListener listener;
+    private static class EventListenerHolder {
+        final EventListener listener;
         final IdentifiedUser user;
 
-        ChangeListenerHolder(ChangeListener l, IdentifiedUser u) {
+        EventListenerHolder(EventListener l, IdentifiedUser u) {
             listener = l;
             user = u;
         }
     }
 
     /** Listeners to receive changes as they happen. */
-    private final Map<ChangeListener, ChangeListenerHolder> listeners =
-      new ConcurrentHashMap<ChangeListener, ChangeListenerHolder>();
+    private final Map<EventListener, EventListenerHolder> listeners =
+      new ConcurrentHashMap<EventListener, EventListenerHolder>();
 
     /** Filename of the new patchset hook. */
     private final File patchsetCreatedHook;
@@ -131,7 +131,7 @@ public class ChangeHookRunner {
      * @param projectCache the project cache instance for the server.
      */
     @Inject
-    public ChangeHookRunner(final WorkQueue queue,
+    public EventHookRunner(final WorkQueue queue,
       final GitRepositoryManager repoManager,
       @GerritServerConfig final Config config, final SitePaths sitePath,
       final ProjectCache projectCache,
@@ -156,11 +156,11 @@ public class ChangeHookRunner {
         claSignedHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "claSignedHook", "cla-signed")).getPath());
     }
 
-    public void addChangeListener(ChangeListener listener, IdentifiedUser user) {
-        listeners.put(listener, new ChangeListenerHolder(listener, user));
+    public void addChangeListener(EventListener listener, IdentifiedUser user) {
+        listeners.put(listener, new EventListenerHolder(listener, user));
     }
 
-    public void removeChangeListener(ChangeListener listener) {
+    public void removeChangeListener(EventListener listener) {
         listeners.remove(listener);
     }
 
@@ -407,7 +407,7 @@ public class ChangeHookRunner {
     }
 
     private void fireEvent(final Change change, final ChangeEvent event) {
-      for (ChangeListenerHolder holder : listeners.values()) {
+      for (EventListenerHolder holder : listeners.values()) {
           if (isVisibleTo(change, holder.user)) {
               holder.listener.onChangeEvent(event);
           }
@@ -415,7 +415,7 @@ public class ChangeHookRunner {
     }
 
     private void fireEvent(Branch.NameKey branchName, final ChangeEvent event) {
-      for (ChangeListenerHolder holder : listeners.values()) {
+      for (EventListenerHolder holder : listeners.values()) {
           if (isVisibleTo(branchName, holder.user)) {
               holder.listener.onChangeEvent(event);
           }

@@ -16,7 +16,7 @@ package com.google.gerrit.server;
 
 import static com.google.gerrit.reviewdb.ApprovalCategory.SUBMIT;
 
-import com.google.gerrit.common.ChangeHookRunner;
+import com.google.gerrit.common.EventHookRunner;
 import com.google.gerrit.reviewdb.Account;
 import com.google.gerrit.reviewdb.ApprovalCategory;
 import com.google.gerrit.reviewdb.Change;
@@ -221,7 +221,7 @@ public class ChangeUtil {
   public static void abandon(final PatchSet.Id patchSetId,
       final IdentifiedUser user, final String message, final ReviewDb db,
       final AbandonedSender.Factory senderFactory,
-      final ChangeHookRunner hooks) throws NoSuchChangeException,
+      final EventHookRunner hooks) throws NoSuchChangeException,
       InvalidChangeOperationException, EmailException, OrmException {
     abandon(patchSetId, user, message, db, senderFactory, hooks, true);
   }
@@ -229,7 +229,7 @@ public class ChangeUtil {
   public static void abandon(final PatchSet.Id patchSetId,
       final IdentifiedUser user, final String message, final ReviewDb db,
       final AbandonedSender.Factory senderFactory,
-      final ChangeHookRunner hooks, final boolean sendMail) throws NoSuchChangeException,
+      final EventHookRunner hooks, final boolean sendMail) throws NoSuchChangeException,
       InvalidChangeOperationException, EmailException, OrmException {
     final Change.Id changeId = patchSetId.getParentKey();
     final PatchSet patch = db.patchSets().get(patchSetId);
@@ -272,7 +272,7 @@ public class ChangeUtil {
   public static void revert(final PatchSet.Id patchSetId,
       final IdentifiedUser user, final String message, final ReviewDb db,
       final RevertedSender.Factory revertedSenderFactory,
-      final ChangeHookRunner hooks, GitRepositoryManager gitManager,
+      final EventHookRunner hooks, GitRepositoryManager gitManager,
       final PatchSetInfoFactory patchSetInfoFactory,
       final ReplicationQueue replication, PersonIdent myIdent)
       throws NoSuchChangeException, EmailException, OrmException,
@@ -286,7 +286,7 @@ public class ChangeUtil {
   public static void revert(final PatchSet.Id patchSetId,
       final IdentifiedUser user, final String message, final ReviewDb db,
       final RevertedSender.Factory revertedSenderFactory,
-      final ChangeHookRunner hooks, GitRepositoryManager gitManager,
+      final EventHookRunner hooks, GitRepositoryManager gitManager,
       final PatchSetInfoFactory patchSetInfoFactory,
       final ReplicationQueue replication, PersonIdent myIdent,
       final boolean sendmail, final ChangeSet.Id csi,
@@ -400,7 +400,7 @@ public class ChangeUtil {
   public static void restore(final PatchSet.Id patchSetId,
       final IdentifiedUser user, final String message, final ReviewDb db,
       final RestoredSender.Factory senderFactory,
-      final ChangeHookRunner hooks) throws NoSuchChangeException,
+      final EventHookRunner hooks) throws NoSuchChangeException,
       InvalidChangeOperationException, EmailException, OrmException {
     restore(patchSetId, user, message, db, senderFactory, hooks, true);
   }
@@ -408,7 +408,7 @@ public class ChangeUtil {
   public static void restore(final PatchSet.Id patchSetId,
       final IdentifiedUser user, final String message, final ReviewDb db,
       final RestoredSender.Factory senderFactory,
-      final ChangeHookRunner hooks, final boolean sendMail) throws NoSuchChangeException,
+      final EventHookRunner hooks, final boolean sendMail) throws NoSuchChangeException,
       InvalidChangeOperationException, EmailException, OrmException {
     final Change.Id changeId = patchSetId.getParentKey();
     final PatchSet patch = db.patchSets().get(patchSetId);

@@ -16,7 +16,7 @@ package com.google.gerrit.server;
 
 import static com.google.gerrit.reviewdb.ApprovalCategory.SUBMIT;
 
-import com.google.gerrit.common.ChangeHookRunner;
+import com.google.gerrit.common.EventHookRunner;
 import com.google.gerrit.reviewdb.AbstractEntity;
 import com.google.gerrit.reviewdb.Account;
 import com.google.gerrit.reviewdb.ApprovalCategory;
@@ -133,7 +133,7 @@ public class TopicUtil {
   public static void abandon(final ChangeSet.Id changeSetId,
       final IdentifiedUser user, final String message, final ReviewDb db,
       final AbandonedSender.Factory abandonedSenderFactory,
-      final ChangeHookRunner hooks) throws NoSuchTopicException,
+      final EventHookRunner hooks) throws NoSuchTopicException,
       NoSuchChangeException, InvalidChangeOperationException,
       EmailException, OrmException  {
     final Topic.Id topicId = changeSetId.getParentKey();
@@ -207,7 +207,7 @@ public class TopicUtil {
   public static void revert(final ChangeSet.Id changeSetId,
       final IdentifiedUser user, final String message, final ReviewDb db,
       final RevertedSender.Factory revertedSenderFactory,
-      final ChangeHookRunner hooks, GitRepositoryManager gitManager,
+      final EventHookRunner hooks, GitRepositoryManager gitManager,
       final PatchSetInfoFactory patchSetInfoFactory,
       final ReplicationQueue replication, PersonIdent myIdent)
       throws NoSuchChangeException, NoSuchTopicException, EmailException,
@@ -305,7 +305,7 @@ public class TopicUtil {
   public static void restore(final ChangeSet.Id changeSetId,
       final IdentifiedUser user, final String message, final ReviewDb db,
       final RestoredSender.Factory restoredSenderFactory,
-      final ChangeHookRunner hooks) throws NoSuchChangeException,
+      final EventHookRunner hooks) throws NoSuchChangeException,
       NoSuchTopicException, InvalidChangeOperationException,
       EmailException, OrmException {
     final Topic.Id topicId = changeSetId.getParentKey();

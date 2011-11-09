@@ -14,7 +14,7 @@
 
 package com.google.gerrit.httpd.rpc.topic;
 
-import com.google.gerrit.common.ChangeHookRunner;
+import com.google.gerrit.common.EventHookRunner;
 import com.google.gerrit.common.data.TopicDetail;
 import com.google.gerrit.common.errors.NoSuchEntityException;
 import com.google.gerrit.httpd.rpc.Handler;
@@ -59,7 +59,7 @@ class RevertTopic extends Handler<TopicDetail> {
   private final ChangeSet.Id changeSetId;
   @Nullable
   private final String message;
-  private final ChangeHookRunner hooks;
+  private final EventHookRunner hooks;
   private final GitRepositoryManager gitManager;
   private final PatchSetInfoFactory patchSetInfoFactory;
   private final PersonIdent myIdent;
@@ -70,7 +70,7 @@ class RevertTopic extends Handler<TopicDetail> {
       final RevertedSender.Factory revertedSenderFactory,
       final TopicDetailFactory.Factory topicDetailFactory,
       @Assisted final ChangeSet.Id changeSetId,
-      @Assisted @Nullable final String message, final ChangeHookRunner hooks,
+      @Assisted @Nullable final String message, final EventHookRunner hooks,
       final GitRepositoryManager gitManager,
       final PatchSetInfoFactory patchSetInfoFactory,
       final ReplicationQueue replication,
