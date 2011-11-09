@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.changes;
+package com.google.gerrit.client.topics;
 
 import com.google.gerrit.client.Gerrit;
 import com.google.gerrit.common.PageLinks;

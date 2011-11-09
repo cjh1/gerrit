@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.changes;
+package com.google.gerrit.client.common;
 
 import com.google.gerrit.client.Gerrit;
 import com.google.gerrit.reviewdb.AccountGeneralPreferences;
-import com.google.gerrit.reviewdb.AccountGeneralPreferences.DownloadCommand;
 import com.google.gwt.user.client.ui.Accessibility;
 import com.google.gwt.user.client.ui.FlowPanel;
 import com.google.gwt.user.client.ui.Widget;
 
-class DownloadCommandPanel extends FlowPanel {
-  private DownloadCommandLink currentCommand;
-  private DownloadUrlLink currentUrl;
+class DownloadUrlPanel extends FlowPanel {
+  private final DownloadCommandPanel commandPanel;
 
-  DownloadCommandPanel() {
+  DownloadUrlPanel(final DownloadCommandPanel commandPanel) {
+    this.commandPanel = commandPanel;
     setStyleName(Gerrit.RESOURCES.css().downloadLinkList());
     Accessibility.setRole(getElement(), Accessibility.ROLE_TABLIST);
   }
@@ -34,16 +33,16 @@ class DownloadCommandPanel extends FlowPanel {
     return getWidgetCount() == 0;
   }
 
-  void select(AccountGeneralPreferences.DownloadCommand cmdType) {
-    DownloadCommandLink first = null;
+  void select(AccountGeneralPreferences.DownloadScheme urlType) {
+    DownloadUrlLink first = null;
 
     for (Widget w : this) {
-      if (w instanceof DownloadCommandLink) {
-        final DownloadCommandLink d = (DownloadCommandLink) w;
+      if (w instanceof DownloadUrlLink) {
+        final DownloadUrlLink d = (DownloadUrlLink) w;
         if (first == null) {
           first = d;
         }
-        if (d.cmdType == cmdType) {
+        if (d.urlType == urlType) {
           d.select();
           return;
         }
@@ -58,21 +57,6 @@ class DownloadCommandPanel extends FlowPanel {
   }
 
   void setCurrentUrl(DownloadUrlLink link) {
-    currentUrl = link;
-    update();
-  }
-
-  void setCurrentCommand(DownloadCommandLink cmd) {
-    currentCommand = cmd;
-    update();
-  }
-
-  private void update() {
-    if (currentCommand != null && currentUrl != null) {
-      currentCommand.setCurrentUrl(currentUrl);
-    } else if (currentCommand != null &&
-        currentCommand.getCmdType().equals(DownloadCommand.REPO_DOWNLOAD)) {
-      currentCommand.setCurrentUrl(null);
-    }
+    commandPanel.setCurrentUrl(link);
   }
 }

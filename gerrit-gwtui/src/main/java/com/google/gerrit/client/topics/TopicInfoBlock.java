@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.changes;
+package com.google.gerrit.client.topics;
 
 import static com.google.gerrit.client.FormatUtil.mediumFormat;
 
 import com.google.gerrit.client.Gerrit;
+import com.google.gerrit.client.changes.Util;
 import com.google.gerrit.client.ui.AccountDashboardLink;
 import com.google.gerrit.client.ui.BranchLink;
 import com.google.gerrit.client.ui.ProjectLink;

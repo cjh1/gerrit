@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.changes;
+package com.google.gerrit.client.common;
 
 import com.google.gerrit.client.FormatUtil;
 import com.google.gerrit.client.Gerrit;
+import com.google.gerrit.client.changes.Util;
 import com.google.gerrit.client.ui.AccountDashboardLink;
 import com.google.gerrit.client.ui.ComplexDisclosurePanel;
 import com.google.gerrit.reviewdb.Account;
@@ -35,7 +36,7 @@ import com.google.gwtexpui.clippy.client.CopyableLabel;
 
 import java.util.Set;
 
-abstract class CommonComplexDisclosurePanel extends ComplexDisclosurePanel implements OpenHandler<DisclosurePanel> {
+public abstract class CommonComplexDisclosurePanel extends ComplexDisclosurePanel implements OpenHandler<DisclosurePanel> {
   protected Grid infoTable;
 
   public CommonComplexDisclosurePanel(String text, boolean isOpen) {

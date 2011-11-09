@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.changes;
+package com.google.gerrit.client.topics;
 
+import com.google.gerrit.client.changes.CommitMessageBlock;
 import com.google.gerrit.common.data.AccountInfoCache;
 import com.google.gerrit.reviewdb.ChangeSetInfo;
 import com.google.gerrit.reviewdb.Topic;
