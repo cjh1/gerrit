@@ -26,6 +26,7 @@ import com.google.gerrit.reviewdb.ChangeSet;
 import com.google.gerrit.reviewdb.ChangeSetApproval;
 import com.google.gerrit.reviewdb.ChangeSetElement;
 import com.google.gerrit.reviewdb.ChangeSetInfo;
+import com.google.gerrit.reviewdb.PatchSetApproval;
 import com.google.gerrit.reviewdb.Project;
 import com.google.gerrit.reviewdb.ReviewDb;
 import com.google.gerrit.reviewdb.Topic;
@@ -84,30 +85,44 @@ public class TopicUtil {
       final MergeOp.Factory opFactory, final MergeQueue merger)
       throws OrmException {
     final Topic.Id topicId = changeSetId.getParentKey();
-    final ChangeSetApproval approval = createSubmitApproval(changeSetId, user, db);
 
+    // Submit the changes belonging to the Topic
+    List<Change> toSubmit = db.changes().byTopicOpenAll(topicId).toList();
+    for(Change c : toSubmit) {
+
+      PatchSetApproval patchSetApproval = ChangeUtil.createSubmitApproval(c.currentPatchSetId(), user, db);
+      db.patchSetApprovals().upsert(Collections.singleton(patchSetApproval));
+
+      db.changes().atomicUpdate(c.getId(),
+          new AtomicUpdate<Change>() {
+            @Override
+            public Change update(Change change) {
+              if (change.getStatus() == Change.Status.NEW) {
+                change.setStatus(Change.Status.SUBMITTED);
+                ChangeUtil.updated(change);
+              }
+              return change;
+            }
+          });
+    }
+
+    final ChangeSetApproval approval = createSubmitApproval(changeSetId, user, db);
     db.changeSetApprovals().upsert(Collections.singleton(approval));
 
     final Topic updatedTopic = db.topics().atomicUpdate(topicId,
         new AtomicUpdate<Topic>() {
-      @Override
-      public Topic update(Topic topic) {
-        if (topic.getStatus() == Topic.Status.NEW) {
-          topic.setStatus(Topic.Status.SUBMITTED);
-          TopicUtil.updated(topic);
-        }
-        return topic;
-      }
-    });
+          @Override
+          public Topic update(Topic topic) {
+            if (topic.getStatus() == Topic.Status.NEW) {
+              topic.setStatus(Topic.Status.SUBMITTED);
+              TopicUtil.updated(topic);
+            }
+            return topic;
+          }
+        });
 
-    if (updatedTopic.getStatus() == Topic.Status.SUBMITTED) {
-      // Submit the changes belonging to the Topic
-      //
-      List<Change> toSubmit = db.changes().byTopicOpenAll(topicId).toList();
-      for(Change c : toSubmit) {
-        ChangeUtil.submit(c.currentPatchSetId(), user, db, opFactory, merger);
-      }
-    }
+    if(updatedTopic.getStatus() == Topic.Status.SUBMITTED)
+      merger.merge(opFactory, updatedTopic.getDest());
   }
 
   public static ChangeSetApproval createSubmitApproval(
