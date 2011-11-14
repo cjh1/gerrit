@@ -267,7 +267,23 @@ public class MergeOp {
     try {
       openSchema();
       openRepository();
+      // First get changes not associated with a topic. If we also included changes associated with
+      // a topic then we might end up merging topic changes in two operations.
       submitted = schema.changes().submitted(destBranch).toList();
+      // Currently have to filter in Java as gwtorm doesn't support IS NULL
+      for (Iterator<Change> iterator = submitted.iterator(); iterator.hasNext();) {
+        Change c = iterator.next();
+        if(c.belongsToTopic())
+          iterator.remove();
+      }
+
+      // Now get any submitted topics. We want to make sure we merge all changes for a topic
+      // in the same merge operation.
+      List<Topic> submittedTopics = schema.topics().submitted(destBranch).toList();
+      for (Topic topic : submittedTopics) {
+        submitted.addAll(schema.changes().byTopicOpenAll(topic.getId()).toList());
+      }
+
       preMerge();
       updateBranch();
       updateChangeStatus();
@@ -552,38 +568,7 @@ public class MergeOp {
       }
     }
 
-    final StringBuilder msgbuf = new StringBuilder();
-    if (merged.size() == 1) {
-      final CodeReviewCommit c = merged.get(0);
-      rw.parseBody(c);
-      msgbuf.append("Merge \"");
-      msgbuf.append(c.getShortMessage());
-      msgbuf.append("\"");
-
-    } else {
-      msgbuf.append("Merge changes ");
-      for (final Iterator<CodeReviewCommit> i = merged.iterator(); i.hasNext();) {
-        msgbuf.append(i.next().change.getKey().abbreviate());
-        if (i.hasNext()) {
-          msgbuf.append(',');
-        }
-      }
-    }
-
-    if (!R_HEADS_MASTER.equals(destBranch.get())) {
-      msgbuf.append(" into ");
-      msgbuf.append(destBranch.getShortName());
-    }
-
-    if (merged.size() > 1) {
-      msgbuf.append("\n\n* changes:\n");
-      for (final CodeReviewCommit c : merged) {
-        rw.parseBody(c);
-        msgbuf.append("  ");
-        msgbuf.append(c.getShortMessage());
-        msgbuf.append("\n");
-      }
-    }
+    final String msgbuf = createMergeCommitMessage(merged);
 
     PersonIdent authorIdent = computeAuthor(merged);
 
@@ -592,9 +577,88 @@ public class MergeOp {
     mergeCommit.setParentIds(mergeTip, n);
     mergeCommit.setAuthor(authorIdent);
     mergeCommit.setCommitter(myIdent);
-    mergeCommit.setMessage(msgbuf.toString());
+    mergeCommit.setMessage(msgbuf);
 
     mergeTip = (CodeReviewCommit) rw.parseCommit(commit(m, mergeCommit));
+  }
+
+  private String createTopicMergeCommitMessage(
+      final List<CodeReviewCommit> merged) throws MissingObjectException,
+      IOException {
+
+    final StringBuilder msgbuf = new StringBuilder();
+    String topic = merged.get(0).change.getTopic();
+
+    final CodeReviewCommit c = merged.get(0);
+    rw.parseBody(c);
+    msgbuf.append("Merge topic '");
+    msgbuf.append(topic);
+    msgbuf.append("' into ");
+    msgbuf.append(c.change.getDest().getShortName());
+    msgbuf.append("\n\n");
+
+    for (final Iterator<CodeReviewCommit> i = merged.iterator(); i.hasNext();) {
+      final CodeReviewCommit currentCommit = i.next();
+      msgbuf.append(currentCommit.getId().getName().substring(0, 8));
+      msgbuf.append(" ");
+      msgbuf.append(currentCommit.getShortMessage());
+      if (i.hasNext()) {
+        msgbuf.append('\n');
+      }
+    }
+    return msgbuf.toString();
+  }
+  private String createMergeCommitMessage(
+      final List<CodeReviewCommit> merged) throws MissingObjectException,
+      IOException {
+    final String msg;
+
+    // if topic review enable and is topic change create topic view commit message
+    if(destProject.isAllowTopicReview() && merged.get(0).change.belongsToTopic())
+    {
+      msg = createTopicMergeCommitMessage(merged);
+    }
+    else
+    {
+      final StringBuilder msgbuf = new StringBuilder();
+
+      if (merged.size() == 1) {
+        final CodeReviewCommit c = merged.get(0);
+        rw.parseBody(c);
+        msgbuf.append("Merge \"");
+        msgbuf.append(c.getShortMessage());
+        msgbuf.append("\"");
+
+      } else {
+        msgbuf.append("Merge changes ");
+        for (final Iterator<CodeReviewCommit> i = merged.iterator(); i.hasNext();) {
+          msgbuf.append(i.next().change.getKey().abbreviate());
+          if (i.hasNext()) {
+            msgbuf.append(',');
+          }
+        }
+      }
+
+      if (!R_HEADS_MASTER.equals(destBranch.get())) {
+        msgbuf.append(" into ");
+        msgbuf.append(destBranch.getShortName());
+      }
+
+      if (merged.size() > 1) {
+        msgbuf.append("\n\n* changes:\n");
+        for (final CodeReviewCommit c : merged) {
+          rw.parseBody(c);
+          msgbuf.append("  ");
+          msgbuf.append(c.getShortMessage());
+          msgbuf.append("\n");
+        }
+      }
+
+      msg = msgbuf.toString();
+
+    }
+
+    return msg;
   }
 
   private PersonIdent computeAuthor(
