@@ -22,12 +22,16 @@ import com.google.gerrit.reviewdb.ApprovalCategory;
 import com.google.gerrit.reviewdb.ApprovalCategoryValue;
 import com.google.gerrit.reviewdb.Branch;
 import com.google.gerrit.reviewdb.Change;
+import com.google.gerrit.reviewdb.ChangeSet;
+import com.google.gerrit.reviewdb.ChangeSetApproval;
 import com.google.gerrit.reviewdb.PatchSet;
 import com.google.gerrit.reviewdb.PatchSetApproval;
 import com.google.gerrit.reviewdb.RevId;
 import com.google.gerrit.reviewdb.ReviewDb;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.IdentifiedUser;
+import com.google.gerrit.server.TopicUtil;
 import com.google.gerrit.server.git.MergeOp;
 import com.google.gerrit.server.git.MergeQueue;
 import com.google.gerrit.server.mail.AbandonedSender;
@@ -37,8 +41,12 @@ import com.google.gerrit.server.patch.PublishComments;
 import com.google.gerrit.server.project.ChangeControl;
 import com.google.gerrit.server.project.InvalidChangeOperationException;
 import com.google.gerrit.server.project.NoSuchChangeException;
+import com.google.gerrit.server.project.NoSuchTopicException;
 import com.google.gerrit.server.project.ProjectControl;
+import com.google.gerrit.server.project.TopicControl;
+import com.google.gerrit.server.topic.PublishTopicComments;
 import com.google.gerrit.server.workflow.FunctionState;
+import com.google.gerrit.server.workflow.TopicFunctionState;
 import com.google.gerrit.sshd.BaseCommand;
 import com.google.gerrit.util.cli.CmdLineParser;
 import com.google.gwtorm.client.OrmException;
@@ -58,10 +66,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class ReviewCommand extends BaseCommand {
   private static final Logger log =
       LoggerFactory.getLogger(ReviewCommand.class);
+
+  private static final String TOPIC_ID_REGEX = "^([tT][\\w\\-]+),?(\\d*)$";
 
   @Override
   protected final CmdLineParser newCmdLineParser() {
@@ -73,11 +85,21 @@ public class ReviewCommand extends BaseCommand {
   }
 
   private final Set<PatchSet.Id> patchSetIds = new HashSet<PatchSet.Id>();
+  private ChangeSet changeSet;
+  private Topic topic;
 
-  @Argument(index = 0, required = true, multiValued = true, metaVar = "{COMMIT | CHANGE,PATCHSET}", usage = "patch to review")
+  @Argument(index = 0, required = true, multiValued = true, metaVar = "{COMMIT | CHANGE,PATCHSET | TOPIC,CHANGESET}", usage = "patch to review")
   void addPatchSetId(final String token) {
     try {
-      patchSetIds.addAll(parsePatchSetId(token));
+
+      if(token.matches(TOPIC_ID_REGEX))
+      {
+        parseTopicId(token);
+      }
+      else
+      {
+        patchSetIds.addAll(parsePatchSetId(token));
+      }
     } catch (UnloggedFailure e) {
       throw new IllegalArgumentException(e.getMessage(), e);
     } catch (OrmException e) {
@@ -85,20 +107,20 @@ public class ReviewCommand extends BaseCommand {
     }
   }
 
-  @Option(name = "--project", aliases = "-p", usage = "project containing the patch set")
+  @Option(name = "--project", aliases = "-p", usage = "project containing the patch set/change set")
   private ProjectControl projectControl;
 
-  @Option(name = "--message", aliases = "-m", usage = "cover message to publish on change", metaVar = "MESSAGE")
-  private String changeComment;
+  @Option(name = "--message", aliases = "-m", usage = "cover message to publish on change/topic", metaVar = "MESSAGE")
+  private String comment;
 
-  @Option(name = "--abandon", usage = "abandon the patch set")
-  private boolean abandonChange;
+  @Option(name = "--abandon", usage = "abandon the patch set/change set")
+  private boolean abandon;
 
-  @Option(name = "--restore", usage = "restore an abandoned the patch set")
-  private boolean restoreChange;
+  @Option(name = "--restore", usage = "restore an abandoned the patch set/change set")
+  private boolean restore;
 
-  @Option(name = "--submit", aliases = "-s", usage = "submit the patch set")
-  private boolean submitChange;
+  @Option(name = "--submit", aliases = "-s", usage = "submit the patch set/change set")
+  private boolean submit;
 
   @Inject
   private ReviewDb db;
@@ -119,13 +141,23 @@ public class ReviewCommand extends BaseCommand {
   private ChangeControl.Factory changeControlFactory;
 
   @Inject
+  private TopicControl.Factory topicControlFactory;
+
+
+  @Inject
   private AbandonedSender.Factory abandonedSenderFactory;
 
   @Inject
   private FunctionState.Factory functionStateFactory;
 
   @Inject
+  private TopicFunctionState.Factory topicFunctionStateFactory;
+
+  @Inject
   private PublishComments.Factory publishCommentsFactory;
+
+  @Inject
+  private PublishTopicComments.Factory publishTopicCommentsFactory;
 
   @Inject
   private RestoredSender.Factory restoredSenderFactory;
@@ -136,6 +168,7 @@ public class ReviewCommand extends BaseCommand {
   private List<ApproveOption> optionList;
 
   private Set<PatchSet.Id> toSubmit = new HashSet<PatchSet.Id>();
+  private Set<ChangeSet.Id> changeSetsToSubmit = new HashSet<ChangeSet.Id>();
 
   @Override
   public final void start(final Environment env) {
@@ -144,174 +177,428 @@ public class ReviewCommand extends BaseCommand {
       public void run() throws Failure {
         initOptionList();
         parseCommandLine();
-        if (abandonChange) {
-          if (restoreChange) {
+        if (abandon) {
+          if (restore) {
             throw error("abandon and restore actions are mutually exclusive");
           }
-          if (submitChange) {
+          if (submit) {
             throw error("abandon and submit actions are mutually exclusive");
           }
         }
 
-        boolean ok = true;
-        for (final PatchSet.Id patchSetId : patchSetIds) {
-          try {
-            approveOne(patchSetId);
-          } catch (UnloggedFailure e) {
-            ok = false;
-            writeError("error: " + e.getMessage() + "\n");
-          } catch (Exception e) {
-            ok = false;
-            writeError("fatal: internal server error while approving "
-                + patchSetId + "\n");
-            log.error("internal error while approving " + patchSetId, e);
-          }
+        if (comment == null) {
+          comment = "";
         }
 
-        if (!ok) {
-          throw new UnloggedFailure(1, "one or more approvals failed;"
-              + " review output above");
-        }
-
-        if (!toSubmit.isEmpty()) {
-          final Set<Branch.NameKey> toMerge = new HashSet<Branch.NameKey>();
-          try {
-            for (PatchSet.Id patchSetId : toSubmit) {
-              ChangeUtil.submit(patchSetId, currentUser, db, opFactory,
-                  new MergeQueue() {
-                    @Override
-                    public void merge(MergeOp.Factory mof, Branch.NameKey branch) {
-                      toMerge.add(branch);
-                    }
-
-                    @Override
-                    public void schedule(Branch.NameKey branch) {
-                      toMerge.add(branch);
-                    }
-
-                    @Override
-                    public void recheckAfter(Branch.NameKey branch, long delay,
-                        TimeUnit delayUnit) {
-                      toMerge.add(branch);
-                    }
-                  });
-            }
-            for (Branch.NameKey branch : toMerge) {
-              merger.merge(opFactory, branch);
-            }
-          } catch (OrmException updateError) {
-            throw new Failure(1, "one or more submits failed", updateError);
-          }
-        }
+        review();
       }
     });
   }
 
-  private void approveOne(final PatchSet.Id patchSetId) throws
-      NoSuchChangeException, OrmException, EmailException, Failure {
+  private void review() throws UnloggedFailure, Failure {
 
-    final Change.Id changeId = patchSetId.getParentKey();
+    if(topic != null)
+    {
+      reviewChangeSet();
+    }
+    else
+    {
+      reviewPatchSets();
+    }
+  }
+
+  private void reviewChangeSet() throws Failure {
+    boolean ok = true;
+
+    try
+    {
+      reviewChangeSet(topic, changeSet);
+    } catch (UnloggedFailure e) {
+      ok = false;
+      writeError("error: " + e.getMessage() + "\n");
+    } catch (Exception e) {
+      ok = false;
+      writeError("fatal: internal server error while approving "
+          + topic.getKey() + "\n");
+      log.error("internal error while approving " + topic.getKey(), e);
+    }
+
+    if (!ok) {
+      throw new UnloggedFailure(1, "one or more approvals failed;"
+          + " review output above");
+    }
+  }
+
+  /*
+   * Submits changes associated with a topic review
+   *
+   */
+  private void submitChangeSetUpdates() throws Failure {
+    if (!changeSetsToSubmit.isEmpty()) {
+      final Set<Branch.NameKey> toMerge = new HashSet<Branch.NameKey>();
+      try {
+        for (ChangeSet.Id changeSetId : changeSetsToSubmit) {
+          TopicUtil.submit(changeSetId, currentUser, db, opFactory,
+              new MergeQueue() {
+                @Override
+                public void merge(MergeOp.Factory mof, Branch.NameKey branch) {
+                  toMerge.add(branch);
+                }
+
+                @Override
+                public void schedule(Branch.NameKey branch) {
+                  toMerge.add(branch);
+                }
+
+                @Override
+                public void recheckAfter(Branch.NameKey branch, long delay,
+                    TimeUnit delayUnit) {
+                  toMerge.add(branch);
+                }
+              });
+        }
+        for (Branch.NameKey branch : toMerge) {
+          merger.merge(opFactory, branch);
+        }
+      } catch (OrmException updateError) {
+        throw new Failure(1, "one or more submits failed", updateError);
+      }
+    }
+  }
+
+  /*
+   * Submit changes associated with a Change review
+   */
+  private void submitPatchSetUpdates() throws Failure {
+    if (!toSubmit.isEmpty()) {
+      final Set<Branch.NameKey> toMerge = new HashSet<Branch.NameKey>();
+      try {
+        for (PatchSet.Id patchSetId : toSubmit) {
+          ChangeUtil.submit(patchSetId, currentUser, db, opFactory,
+              new MergeQueue() {
+                @Override
+                public void merge(MergeOp.Factory mof, Branch.NameKey branch) {
+                  toMerge.add(branch);
+                }
+
+                @Override
+                public void schedule(Branch.NameKey branch) {
+                  toMerge.add(branch);
+                }
+
+                @Override
+                public void recheckAfter(Branch.NameKey branch, long delay,
+                    TimeUnit delayUnit) {
+                  toMerge.add(branch);
+                }
+              });
+        }
+        for (Branch.NameKey branch : toMerge) {
+          merger.merge(opFactory, branch);
+        }
+      } catch (OrmException updateError) {
+        throw new Failure(1, "one or more submits failed", updateError);
+      }
+    }
+  }
+
+  private void reviewPatchSet(final PatchSet.Id patchSetId) throws
+      NoSuchChangeException, UnloggedFailure,
+      OrmException, EmailException, Failure {
+    Change.Id changeId = patchSetId.getParentKey();
     ChangeControl changeControl = changeControlFactory.validateFor(changeId);
 
-    if (changeComment == null) {
-      changeComment = "";
-    }
-
-    Set<ApprovalCategoryValue.Id> aps = new HashSet<ApprovalCategoryValue.Id>();
-    for (ApproveOption ao : optionList) {
-      Short v = ao.value();
-      if (v != null) {
-        assertScoreIsAllowed(patchSetId, changeControl, ao, v);
-        aps.add(new ApprovalCategoryValue.Id(ao.getCategoryId(), v));
-      }
-    }
+    updatePatchSetApprovals(patchSetId, changeControl);
 
     try {
-      publishCommentsFactory.create(patchSetId, changeComment, aps).call();
 
-      if (abandonChange) {
-        if (changeControl.canAbandon()) {
-          ChangeUtil.abandon(patchSetId, currentUser, changeComment, db,
-              abandonedSenderFactory, hooks);
-        } else {
-          throw error("Not permitted to abandon change");
-        }
+      if (abandon) {
+        abandonPatchSet(patchSetId, changeControl);
       }
 
-      if (restoreChange) {
-        if (changeControl.canRestore()) {
-          ChangeUtil.restore(patchSetId, currentUser, changeComment, db,
-              restoredSenderFactory, hooks);
-        } else {
-          throw error("Not permitted to restore change");
-        }
-        if (submitChange) {
-          changeControl = changeControlFactory.validateFor(changeId);
-        }
+      if (restore) {
+        changeControl = restorePatchSet(patchSetId, changeId, changeControl);
+      }
+
+      if (submit) {
+        submitPatchSet(patchSetId, changeId, changeControl);
       }
     } catch (InvalidChangeOperationException e) {
       throw error(e.getMessage());
     }
+  }
 
-    if (submitChange) {
-      List<SubmitRecord> result = changeControl.canSubmit(db, patchSetId);
-      if (result.isEmpty()) {
-        throw new Failure(1, "ChangeControl.canSubmit returned empty list");
-      }
-      switch (result.get(0).status) {
-        case OK:
-          if (changeControl.getRefControl().canSubmit()) {
-            toSubmit.add(patchSetId);
-          } else {
-            throw error("change " + changeId + ": you do not have submit permission");
-          }
-          break;
-
-        case NOT_READY: {
-          StringBuilder msg = new StringBuilder();
-          for (SubmitRecord.Label lbl : result.get(0).labels) {
-            switch (lbl.status) {
-              case OK:
-                break;
-
-              case REJECT:
-                if (msg.length() > 0) msg.append("\n");
-                msg.append("change " + changeId + ": blocked by " + lbl.label);
-                break;
-
-              case NEED:
-                if (msg.length() > 0) msg.append("\n");
-                msg.append("change " + changeId + ": needs " + lbl.label);
-                break;
-
-              case IMPOSSIBLE:
-                if (msg.length() > 0) msg.append("\n");
-                msg.append("change " + changeId + ": needs " + lbl.label
-                    + " (check project access)");
-                break;
-
-              default:
-                throw new Failure(1, "Unsupported label status " + lbl.status);
-            }
-          }
-          throw error(msg.toString());
+  private void updatePatchSetApprovals(final PatchSet.Id patchSetId,
+      ChangeControl changeControl) throws UnloggedFailure,
+      NoSuchChangeException, OrmException {
+    try {
+      Set<ApprovalCategoryValue.Id> aps = new HashSet<ApprovalCategoryValue.Id>();
+      for (ApproveOption ao : optionList) {
+        Short v = ao.value();
+        if (v != null) {
+          assertScoreIsAllowed(patchSetId, changeControl, ao, v);
+          aps.add(new ApprovalCategoryValue.Id(ao.getCategoryId(), v));
         }
-
-        case CLOSED:
-          throw error("change " + changeId + " is closed");
-
-        case RULE_ERROR:
-          if (result.get(0).errorMessage != null) {
-            throw error("change " + changeId + ": " + result.get(0).errorMessage);
-          } else {
-            throw error("change " + changeId + ": internal rule error");
-          }
-
-        default:
-          throw new Failure(1, "Unsupported status " + result.get(0).status);
       }
+
+      publishCommentsFactory.create(patchSetId, comment, aps).call();
+    } catch (InvalidChangeOperationException e) {
+      throw error(e.getMessage());
     }
   }
+
+  private void submitPatchSet(final PatchSet.Id patchSetId, Change.Id changeId,
+      ChangeControl changeControl) throws Failure, UnloggedFailure {
+    List<SubmitRecord> result = changeControl.canSubmit(db, patchSetId);
+    if (result.isEmpty()) {
+      throw new Failure(1, "ChangeControl.canSubmit returned empty list");
+    }
+    switch (result.get(0).status) {
+      case OK:
+        if (changeControl.getRefControl().canSubmit()) {
+          toSubmit.add(patchSetId);
+        } else {
+          throw error("change " + changeId + ": you do not have submit permission");
+        }
+        break;
+
+      case NOT_READY: {
+        StringBuilder msg = new StringBuilder();
+        for (SubmitRecord.Label lbl : result.get(0).labels) {
+          switch (lbl.status) {
+            case OK:
+              break;
+
+            case REJECT:
+              if (msg.length() > 0) msg.append("\n");
+              msg.append("change " + changeId + ": blocked by " + lbl.label);
+              break;
+
+            case NEED:
+              if (msg.length() > 0) msg.append("\n");
+              msg.append("change " + changeId + ": needs " + lbl.label);
+              break;
+
+            case IMPOSSIBLE:
+              if (msg.length() > 0) msg.append("\n");
+              msg.append("change " + changeId + ": needs " + lbl.label
+                  + " (check project access)");
+              break;
+
+            default:
+              throw new Failure(1, "Unsupported label status " + lbl.status);
+          }
+        }
+        throw error(msg.toString());
+      }
+
+      case CLOSED:
+        throw error("change " + changeId + " is closed");
+
+      case RULE_ERROR:
+        if (result.get(0).errorMessage != null) {
+          throw error("change " + changeId + ": " + result.get(0).errorMessage);
+        } else {
+          throw error("change " + changeId + ": internal rule error");
+        }
+
+      default:
+        throw new Failure(1, "Unsupported status " + result.get(0).status);
+    }
+  }
+
+  private ChangeControl restorePatchSet(final PatchSet.Id patchSetId,
+      Change.Id changeId, ChangeControl changeControl)
+      throws NoSuchChangeException, InvalidChangeOperationException,
+      EmailException, OrmException, UnloggedFailure {
+    if (changeControl.canRestore()) {
+      ChangeUtil.restore(patchSetId, currentUser, comment, db,
+          restoredSenderFactory, hooks);
+    } else {
+      throw error("Not permitted to restore change");
+    }
+    if (submit) {
+      changeControl = changeControlFactory.validateFor(changeId);
+    }
+    return changeControl;
+  }
+
+  private void abandonPatchSet(final PatchSet.Id patchSetId,
+      ChangeControl changeControl) throws NoSuchChangeException,
+      InvalidChangeOperationException, EmailException, OrmException,
+      UnloggedFailure {
+    if (changeControl.canAbandon()) {
+      ChangeUtil.abandon(patchSetId, currentUser, comment, db,
+          abandonedSenderFactory, hooks);
+    } else {
+      throw error("Not permitted to abandon change");
+    }
+  }
+
+  private void reviewChangeSet(Topic topic, ChangeSet changeSet)
+      throws NoSuchTopicException, UnloggedFailure, OrmException,
+      NoSuchChangeException, EmailException, Failure {
+
+    TopicControl topicControl = topicControlFactory.validateFor(changeSet.getTopicId());
+
+    updateApprovals(topic, changeSet, topicControl);
+
+    try {
+      if (abandon) {
+        abandonChangeSet(changeSet, topicControl);
+      }
+
+      if (restore) {
+        restoreChangeSet(changeSet, topicControl);
+      }
+
+      if (submit) {
+        submitChangeSet(topic, changeSet, topicControl);
+        submitChangeSetUpdates();
+      }
+    } catch (InvalidChangeOperationException e) {
+      throw error(e.getMessage());
+    }
+  }
+
+  private void submitChangeSet(Topic topic, ChangeSet changeSet,
+      TopicControl topicControl) throws NoSuchChangeException, OrmException,
+      Failure, UnloggedFailure {
+    List<SubmitRecord> result = topicControl.canSubmit(db, changeSet.getId(),
+                                                changeControlFactory, approvalTypes, topicFunctionStateFactory);
+    if (result.isEmpty()) {
+      throw new Failure(1, "TopicControl.canSubmit returned empty list");
+    }
+
+    String topicKey = topic.getKey().abbreviate();
+
+    switch (result.get(0).status) {
+      case OK:
+        if (topicControl.getRefControl().canSubmit()) {
+          changeSetsToSubmit.add(changeSet.getId());
+        } else {
+          throw error("topic " + topicKey + ": you do not have submit permission");
+        }
+        break;
+
+      case NOT_READY: {
+        StringBuilder msg = new StringBuilder();
+        for (SubmitRecord.Label lbl : result.get(0).labels) {
+          switch (lbl.status) {
+            case OK:
+              break;
+
+            case REJECT:
+              if (msg.length() > 0) msg.append("\n");
+              msg.append("topic " + topicKey + ": blocked by " + lbl.label);
+              break;
+
+            case NEED:
+              if (msg.length() > 0) msg.append("\n");
+              msg.append("topic " + topicKey + ": needs " + lbl.label);
+              break;
+
+            case IMPOSSIBLE:
+              if (msg.length() > 0) msg.append("\n");
+              msg.append("topic " + topicKey + ": needs " + lbl.label
+                  + " (check project access)");
+              break;
+
+            default:
+              throw new Failure(1, "Unsupported label status " + lbl.status);
+          }
+        }
+        throw error(msg.toString());
+      }
+
+      case CLOSED:
+        throw error("topic " + topicKey + " is closed");
+
+      case RULE_ERROR:
+        if (result.get(0).errorMessage != null) {
+          throw error("topic " + topicKey + ": " + result.get(0).errorMessage);
+        } else {
+          throw error("topic " + topicKey + ": internal rule error");
+        }
+
+      default:
+        throw new Failure(1, "Unsupported status " + result.get(0).status);
+    }
+  }
+
+  private void restoreChangeSet(ChangeSet changeSet, TopicControl topicControl)
+      throws NoSuchChangeException, NoSuchTopicException,
+      InvalidChangeOperationException, EmailException, OrmException,
+      UnloggedFailure {
+    if (topicControl.canRestore()) {
+      TopicUtil.restore(changeSet.getId(), currentUser, comment, db,
+          restoredSenderFactory, hooks);
+    } else {
+      throw error("Not permitted to restore change");
+    }
+  }
+
+  private void abandonChangeSet(ChangeSet changeSet, TopicControl topicControl)
+      throws NoSuchTopicException, NoSuchChangeException,
+      InvalidChangeOperationException, EmailException, OrmException,
+      UnloggedFailure {
+    if (topicControl.canAbandon()) {
+      TopicUtil.abandon(changeSet.getId(), currentUser, comment, db,
+          abandonedSenderFactory, hooks);
+    } else {
+      throw error("Not permitted to abandon change");
+    }
+  }
+
+  private void updateApprovals(Topic topic, ChangeSet changeSet,
+      TopicControl topicControl) throws UnloggedFailure, NoSuchTopicException,
+      OrmException {
+    Set<ApprovalCategoryValue.Id> aps = new HashSet<ApprovalCategoryValue.Id>();
+    for (ApproveOption ao : optionList) {
+      Short v = ao.value();
+      if (v != null) {
+        assertScoreIsAllowed(topic, changeSet.getId(), topicControl, ao, v);
+        aps.add(new ApprovalCategoryValue.Id(ao.getCategoryId(), v));
+      }
+    }
+
+    publishTopicCommentsFactory.create(changeSet.getId(), comment, aps).call();
+  }
+
+  private ChangeSet.Id parseTopicId(final String changeSetIdentity) throws OrmException, UnloggedFailure
+  {
+    Matcher m = Pattern.compile(TOPIC_ID_REGEX).matcher(changeSetIdentity);
+    m.matches();
+
+    String topicId = m.group(1);
+
+    List<Topic> topics = db.topics().byKey(new Topic.Key(topicId)).toList();
+
+    if(topics.size() == 0)
+      throw error("\"" + topicId + "\" no such topic");
+
+    topic = topics.get(0);
+    String changeSetIdStr = m.group(2).trim();
+    if(!changeSetIdStr.isEmpty())
+    {
+      List<ChangeSet> changes = db.changeSets().byTopic(topic.getId()).toList();
+
+      int change = Integer.parseInt(changeSetIdStr);
+
+      if(changes.size() == 0 || change-1 > changes.size() ||
+         change-1 < 0)
+        throw error("\"" + changeSetIdStr + "\" no such change set");
+
+      changeSet = changes.get(change-1);
+    }
+    else
+    {
+      changeSet = db.changeSets().get(topic.currentChangeSetId());
+    }
+
+    return changeSet.getId();
+  }
+
 
   private Set<PatchSet.Id> parsePatchSetId(final String patchIdentity)
       throws UnloggedFailure, OrmException {
@@ -393,6 +680,22 @@ public class ReviewCommand extends BaseCommand {
     }
   }
 
+  private void assertScoreIsAllowed(final Topic topic, final ChangeSet.Id changeSetId,
+      final TopicControl topicControl, ApproveOption ao, Short v)
+      throws UnloggedFailure {
+    final ChangeSetApproval psa =
+        new ChangeSetApproval(new ChangeSetApproval.Key(changeSetId, currentUser
+            .getAccountId(), ao.getCategoryId()), v);
+    final TopicFunctionState fs =
+        topicFunctionStateFactory.create(topic, changeSetId,
+            Collections.<ChangeSetApproval> emptyList());
+    psa.setValue(v);
+    fs.normalize(approvalTypes.byId(psa.getCategoryId()), psa);
+    if (v != psa.getValue()) {
+      throw error(ao.name() + "=" + ao.value() + " not permitted");
+    }
+  }
+
   private void initOptionList() {
     optionList = new ArrayList<ApproveOption>();
 
@@ -416,6 +719,32 @@ public class ReviewCommand extends BaseCommand {
       err.write(msg.getBytes(ENC));
     } catch (IOException e) {
     }
+  }
+
+  private void reviewPatchSets() throws Failure {
+
+    boolean ok = true;
+
+    for (final PatchSet.Id patchSetId : patchSetIds) {
+      try {
+        reviewPatchSet(patchSetId);
+      } catch (UnloggedFailure e) {
+        ok = false;
+        writeError("error: " + e.getMessage() + "\n");
+      } catch (Exception e) {
+        ok = false;
+        writeError("fatal: internal server error while approving "
+            + patchSetId + "\n");
+        log.error("internal error while approving " + patchSetId, e);
+      }
+    }
+
+    if (!ok) {
+      throw new UnloggedFailure(1, "one or more approvals failed;"
+          + " review output above");
+    }
+
+    submitPatchSetUpdates();
   }
 
   private static UnloggedFailure error(final String msg) {
