@@ -14,6 +14,7 @@
 
 package com.google.gerrit.client.changes;
 
+import static com.google.gerrit.common.PageLinks.ENTITY_CHANGE;
 import com.google.gerrit.client.Gerrit;
 import com.google.gerrit.client.rpc.GerritCallback;
 import com.google.gerrit.common.PageLinks;
@@ -68,12 +69,12 @@ public class QueryScreen extends PagedSingleListScreen implements
 
   @Override
   protected void loadPrev() {
-    Util.LIST_SVC.allQueryPrev(query, pos, pageSize, loadCallback());
+    Util.LIST_SVC.allQueryPrev(query.replace(ENTITY_CHANGE, ""), pos, pageSize, loadCallback());
   }
 
   @Override
   protected void loadNext() {
-    Util.LIST_SVC.allQueryNext(query, pos, pageSize, loadCallback());
+    Util.LIST_SVC.allQueryNext(query.replace(ENTITY_CHANGE, ""), pos, pageSize, loadCallback());
   }
 
   private static boolean isSingleQuery(String query) {
