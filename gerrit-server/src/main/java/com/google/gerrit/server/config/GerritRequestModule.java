@@ -47,6 +47,7 @@ import com.google.gerrit.server.project.PerRequestProjectControlCache;
 import com.google.gerrit.server.project.ProjectControl;
 import com.google.gerrit.server.query.change.ChangeQueryBuilder;
 import com.google.gerrit.server.query.change.ChangeQueryRewriter;
+import com.google.gerrit.server.query.topic.TopicQueryBuilder;
 import com.google.gerrit.server.topic.AddTopicReviewer;
 import com.google.gerrit.server.topic.PublishTopicComments;
 import com.google.gerrit.server.topic.RemoveTopicReviewer;
@@ -74,6 +75,7 @@ public class GerritRequestModule extends FactoryModule {
     factory(ReceiveCommits.Factory.class);
     factory(MergeOp.Factory.class);
     factory(CreateCodeReviewNotes.Factory.class);
+    factory(TopicQueryBuilder.Factory.class);
 
     // Not really per-request, but dammit, I don't know where else to
     // easily park this stuff.

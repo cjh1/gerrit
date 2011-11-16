@@ -1,4 +1,4 @@
-// Copyright (C) 2010 The Android Open Source Project
+// Copyright (C) 2011 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,20 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.server.query.change;
+package com.google.gerrit.server.query.topic;
 
-import com.google.gerrit.reviewdb.Change;
 import com.google.gerrit.reviewdb.ReviewDb;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.server.CurrentUser;
 import com.google.gerrit.server.IdentifiedUser;
-import com.google.gerrit.server.project.ChangeControl;
-import com.google.gerrit.server.project.NoSuchChangeException;
+import com.google.gerrit.server.project.NoSuchTopicException;
+import com.google.gerrit.server.project.TopicControl;
 import com.google.gerrit.server.query.OperatorPredicate;
 import com.google.gerrit.server.query.SingleGroupUser;
 import com.google.gwtorm.client.OrmException;
 import com.google.inject.Provider;
 
-class IsVisibleToPredicate extends OperatorPredicate<ChangeData> {
+class IsVisibleToPredicate extends OperatorPredicate<TopicData> {
   private static String describe(CurrentUser user) {
     if (user instanceof IdentifiedUser) {
       return ((IdentifiedUser) user).getAccountId().toString();
@@ -38,31 +38,31 @@ class IsVisibleToPredicate extends OperatorPredicate<ChangeData> {
   }
 
   private final Provider<ReviewDb> db;
-  private final ChangeControl.GenericFactory changeControl;
+  private final TopicControl.GenericFactory topicControl;
   private final CurrentUser user;
 
   IsVisibleToPredicate(Provider<ReviewDb> db,
-      ChangeControl.GenericFactory changeControlFactory, CurrentUser user) {
-    super(ChangeQueryBuilder.FIELD_VISIBLETO, describe(user));
+      TopicControl.GenericFactory topicControlFactory, CurrentUser user) {
+    super(TopicQueryBuilder.FIELD_VISIBLETO, describe(user));
     this.db = db;
-    this.changeControl = changeControlFactory;
+    this.topicControl = topicControlFactory;
     this.user = user;
   }
 
   @Override
-  public boolean match(final ChangeData cd) throws OrmException {
+  public boolean match(final TopicData cd) throws OrmException {
     if (cd.fastIsVisibleTo(user)) {
       return true;
     }
     try {
-      Change c = cd.change(db);
-      if (c != null && changeControl.controlFor(c, user).isVisible()) {
+      Topic c = cd.topic(db);
+      if (c != null && topicControl.controlFor(c, user).isVisible()) {
         cd.cacheVisibleTo(user);
         return true;
       } else {
         return false;
       }
-    } catch (NoSuchChangeException e) {
+    } catch (NoSuchTopicException e) {
       return false;
     }
   }

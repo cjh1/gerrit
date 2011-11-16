@@ -27,6 +27,10 @@ public interface TopicAccess extends Access<Topic, Topic.Id> {
   @Query("WHERE topicKey = ?")
   ResultSet<Topic> byKey(Topic.Key key) throws OrmException;
 
+  @Query("WHERE topicKey >= ? AND topicKey <= ?")
+  ResultSet<Topic> byKeyRange(Topic.Key reva, Topic.Key revb)
+      throws OrmException;
+
   @Query("WHERE dest = ? AND topicKey = ?")
   ResultSet<Topic> byBranchKey(Branch.NameKey p, Topic.Key key)
       throws OrmException;
