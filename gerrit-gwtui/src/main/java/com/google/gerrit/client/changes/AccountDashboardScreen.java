@@ -20,7 +20,7 @@ import com.google.gerrit.client.changes.ChangeTable.ApprovalViewType;
 import com.google.gerrit.client.rpc.ScreenLoadCallback;
 import com.google.gerrit.client.ui.Screen;
 import com.google.gerrit.common.PageLinks;
-import com.google.gerrit.common.data.AccountDashboardInfo;
+import com.google.gerrit.common.data.AccountChangeDashboardInfo;
 import com.google.gerrit.common.data.AccountInfo;
 import com.google.gerrit.reviewdb.Account;
 
@@ -56,9 +56,9 @@ public class AccountDashboardScreen extends Screen implements ChangeListScreen {
   protected void onLoad() {
     super.onLoad();
     Util.LIST_SVC.forAccount(ownerId,
-        new ScreenLoadCallback<AccountDashboardInfo>(this) {
+        new ScreenLoadCallback<AccountChangeDashboardInfo>(this) {
           @Override
-          protected void preDisplay(final AccountDashboardInfo r) {
+          protected void preDisplay(final AccountChangeDashboardInfo r) {
             display(r);
           }
         });
@@ -70,7 +70,7 @@ public class AccountDashboardScreen extends Screen implements ChangeListScreen {
     table.setRegisterKeys(true);
   }
 
-  private void display(final AccountDashboardInfo r) {
+  private void display(final AccountChangeDashboardInfo r) {
     table.setAccountInfoCache(r.getAccounts());
 
     final AccountInfo o = r.getAccounts().get(r.getOwner());

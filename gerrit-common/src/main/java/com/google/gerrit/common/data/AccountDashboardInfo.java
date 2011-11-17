@@ -18,13 +18,14 @@ import com.google.gerrit.reviewdb.Account;
 
 import java.util.List;
 
-/** Summary information needed to display an account dashboard. */
-public class AccountDashboardInfo {
+/** Summary information needed to display an account dashboard.
+ */
+public abstract class AccountDashboardInfo<T> {
   protected AccountInfoCache accounts;
   protected Account.Id owner;
-  protected List<ChangeInfo> byOwner;
-  protected List<ChangeInfo> forReview;
-  protected List<ChangeInfo> closed;
+  protected List<T> byOwner;
+  protected List<T> forReview;
+  protected List<T> closed;
 
   protected AccountDashboardInfo() {
   }
@@ -45,27 +46,27 @@ public class AccountDashboardInfo {
     return owner;
   }
 
-  public List<ChangeInfo> getByOwner() {
+  public List<T> getByOwner() {
     return byOwner;
   }
 
-  public void setByOwner(List<ChangeInfo> c) {
+  public void setByOwner(List<T> c) {
     byOwner = c;
   }
 
-  public List<ChangeInfo> getForReview() {
+  public List<T> getForReview() {
     return forReview;
   }
 
-  public void setForReview(List<ChangeInfo> c) {
+  public void setForReview(List<T> c) {
     forReview = c;
   }
 
-  public List<ChangeInfo> getClosed() {
+  public List<T> getClosed() {
     return closed;
   }
 
-  public void setClosed(List<ChangeInfo> c) {
+  public void setClosed(List<T> c) {
     closed = c;
   }
 }

@@ -14,7 +14,7 @@
 
 package com.google.gerrit.httpd.rpc;
 
-import com.google.gerrit.common.data.AccountDashboardInfo;
+import com.google.gerrit.common.data.AccountChangeDashboardInfo;
 import com.google.gerrit.common.data.ChangeInfo;
 import com.google.gerrit.common.data.ChangeListService;
 import com.google.gerrit.common.data.GlobalCapability;
@@ -204,7 +204,7 @@ public class ChangeListServiceImpl extends BaseServiceImplementation implements
   }
 
   public void forAccount(final Account.Id id,
-      final AsyncCallback<AccountDashboardInfo> callback) {
+      final AsyncCallback<AccountChangeDashboardInfo> callback) {
     final Account.Id me = getAccountId();
     final Account.Id target = id != null ? id : me;
     if (target == null) {
@@ -212,8 +212,8 @@ public class ChangeListServiceImpl extends BaseServiceImplementation implements
       return;
     }
 
-    run(callback, new Action<AccountDashboardInfo>() {
-      public AccountDashboardInfo run(final ReviewDb db) throws OrmException,
+    run(callback, new Action<AccountChangeDashboardInfo>() {
+      public AccountChangeDashboardInfo run(final ReviewDb db) throws OrmException,
           Failure {
         final AccountInfoCacheFactory ac = accountInfoCacheFactory.create();
         final Account user = ac.get(target);
@@ -223,7 +223,7 @@ public class ChangeListServiceImpl extends BaseServiceImplementation implements
 
         final Set<Change.Id> stars = currentUser.get().getStarredChanges();
         final ChangeAccess changes = db.changes();
-        final AccountDashboardInfo d;
+        final AccountChangeDashboardInfo d;
 
         final Set<Change.Id> openReviews = new HashSet<Change.Id>();
         final Set<Change.Id> closedReviews = new HashSet<Change.Id>();
@@ -235,7 +235,7 @@ public class ChangeListServiceImpl extends BaseServiceImplementation implements
           closedReviews.add(ca.getPatchSetId().getParentKey());
         }
 
-        d = new AccountDashboardInfo(target);
+        d = new AccountChangeDashboardInfo(target);
         d.setByOwner(filter(changes.byOwnerOpen(target), stars, ac));
         d.setClosed(filter(changes.byOwnerClosed(target), stars, ac));
 
