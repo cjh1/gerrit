@@ -1,4 +1,4 @@
-// Copyright (C) 2011 The Android Open Source Project
+// Copyright (C) 2008 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 package com.google.gerrit.common.data;
 
+import com.google.gerrit.reviewdb.Account;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwtjsonrpc.client.RemoteJsonService;
 import com.google.gwtjsonrpc.client.RpcImpl;
@@ -28,4 +29,7 @@ public interface TopicListService extends RemoteJsonService {
   /** Get all topics which match an arbitrary query string. */
   void allQueryNext(String query, String pos, int limit,
       AsyncCallback<SingleListTopicInfo> callback);
+
+  /** Get the data to show AccountDashboardScreen for an account. */
+  void forAccount(Account.Id id, AsyncCallback<AccountTopicDashboardInfo> callback);
 }
