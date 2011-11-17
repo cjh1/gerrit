@@ -14,14 +14,19 @@
 
 package com.google.gerrit.httpd.rpc.topic;
 
+import com.google.gerrit.common.data.AccountTopicDashboardInfo;
 import com.google.gerrit.common.data.GlobalCapability;
 import com.google.gerrit.common.data.SingleListTopicInfo;
 import com.google.gerrit.common.data.TopicInfo;
 import com.google.gerrit.common.data.TopicListService;
 import com.google.gerrit.common.errors.InvalidQueryException;
+import com.google.gerrit.common.errors.NoSuchEntityException;
 import com.google.gerrit.httpd.rpc.BaseServiceImplementation;
+import com.google.gerrit.reviewdb.Account;
+import com.google.gerrit.reviewdb.ChangeSetApproval;
 import com.google.gerrit.reviewdb.ReviewDb;
 import com.google.gerrit.reviewdb.Topic;
+import com.google.gerrit.reviewdb.TopicAccess;
 import com.google.gerrit.server.CurrentUser;
 import com.google.gerrit.server.account.AccountInfoCacheFactory;
 import com.google.gerrit.server.project.NoSuchTopicException;
@@ -43,6 +48,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 public class TopicListServiceImpl extends BaseServiceImplementation implements
     TopicListService {
@@ -52,7 +59,12 @@ public class TopicListServiceImpl extends BaseServiceImplementation implements
           return o1.getId().get() - o2.getId().get();
         }
       };
-
+  private static final Comparator<TopicInfo> SORT_KEY_COMP =
+      new Comparator<TopicInfo>() {
+        public int compare(final TopicInfo o1, final TopicInfo o2) {
+          return o2.getSortKey().compareTo(o1.getSortKey());
+        }
+      };
   private static final Comparator<Topic> QUERY_PREV =
       new Comparator<Topic>() {
         public int compare(final Topic a, final Topic b) {
@@ -189,6 +201,96 @@ public class TopicListServiceImpl extends BaseServiceImplementation implements
     }
   }
 
+  public void forAccount(final Account.Id id,
+      final AsyncCallback<AccountTopicDashboardInfo> callback) {
+    final Account.Id me = getAccountId();
+    final Account.Id target = id != null ? id : me;
+    if (target == null) {
+      callback.onFailure(new NoSuchEntityException());
+      return;
+    }
+
+    run(callback, new Action<AccountTopicDashboardInfo>() {
+      public AccountTopicDashboardInfo run(final ReviewDb db) throws OrmException,
+          Failure {
+        final AccountInfoCacheFactory ac = accountInfoCacheFactory.create();
+        final Account user = ac.get(target);
+        if (user == null) {
+          throw new Failure(new NoSuchEntityException());
+        }
+
+        final TopicAccess topics = db.topics();
+        final AccountTopicDashboardInfo d;
+
+        final Set<Topic.Id> openReviews = new HashSet<Topic.Id>();
+        final Set<Topic.Id> closedReviews = new HashSet<Topic.Id>();
+
+        for(final ChangeSetApproval csa : db.changeSetApprovals().openByUser(id)) {
+          openReviews.add(csa.getChangeSetId().getParentKey());
+        }
+
+        for(final ChangeSetApproval csa : db.changeSetApprovals().closedByUser(id)) {
+          closedReviews.add(csa.getChangeSetId().getParentKey());
+        }
+
+        d = new AccountTopicDashboardInfo(target);
+        d.setByOwner(filter(topics.byOwnerOpen(target), ac));
+        d.setClosed(filter(topics.byOwnerClosed(target), ac));
+
+        for (final TopicInfo t : d.getByOwner()) {
+          openReviews.remove(t.getId());
+        }
+        d.setForReview(filter(topics.get(openReviews), ac));
+        Collections.sort(d.getForReview(), ID_COMP);
+
+        for (final TopicInfo t : d.getClosed()) {
+          closedReviews.remove(t.getId());
+        }
+        if (!closedReviews.isEmpty()) {
+          d.getClosed().addAll(filter(topics.get(closedReviews), ac));
+          Collections.sort(d.getClosed(), SORT_KEY_COMP);
+        }
+
+        d.setAccounts(ac.create());
+        return d;
+      }
+    });
+  }
+
+//  public void toggleStars(final ToggleStarRequest req,
+//      final AsyncCallback<VoidResult> callback) {
+//    run(callback, new Action<VoidResult>() {
+//      public VoidResult run(final ReviewDb db) throws OrmException {
+//        final Account.Id me = getAccountId();
+//        final Set<Change.Id> existing = currentUser.get().getStarredChanges();
+//        List<StarredChange> add = new ArrayList<StarredChange>();
+//        List<StarredChange.Key> remove = new ArrayList<StarredChange.Key>();
+//
+//        if (req.getAddSet() != null) {
+//          for (final Change.Id id : req.getAddSet()) {
+//            if (!existing.contains(id)) {
+//              add.add(new StarredChange(new StarredChange.Key(me, id)));
+//            }
+//          }
+//        }
+//
+//        if (req.getRemoveSet() != null) {
+//          for (final Change.Id id : req.getRemoveSet()) {
+//            remove.add(new StarredChange.Key(me, id));
+//          }
+//        }
+//
+//        db.starredChanges().insert(add);
+//        db.starredChanges().deleteKeys(remove);
+//        return VoidResult.INSTANCE;
+//      }
+//    });
+//  }
+
+  //public void myStarredTopciIds(final AsyncCallback<Set<Topic.Id>> callback) {
+  //  callback.onSuccess(currentUser.get().getStarredChanges());
+  //}
+
   private int safePageSize(final int pageSize) throws InvalidQueryException {
     int maxLimit = currentUser.get().getCapabilities()
       .getRange(GlobalCapability.QUERY_LIMIT)
@@ -197,6 +299,19 @@ public class TopicListServiceImpl extends BaseServiceImplementation implements
       throw new InvalidQueryException("Search Disabled");
     }
     return 0 < pageSize && pageSize <= maxLimit ? pageSize : maxLimit;
+  }
+
+  private List<TopicInfo> filter(final ResultSet<Topic> rs,
+      final AccountInfoCacheFactory accts) {
+    final ArrayList<TopicInfo> r = new ArrayList<TopicInfo>();
+    for (final Topic t : rs) {
+      if (canRead(t)) {
+        final TopicInfo ci = new TopicInfo(t);
+        accts.want(ci.getOwner());
+        r.add(ci);
+      }
+    }
+    return r;
   }
 
   private abstract class QueryNext implements Action<SingleListTopicInfo> {
