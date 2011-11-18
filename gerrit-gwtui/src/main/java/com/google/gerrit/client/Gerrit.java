@@ -480,20 +480,43 @@ public class Gerrit implements EntryPoint {
     final GerritConfig cfg = getConfig();
     LinkMenuBar m;
 
-    m = new LinkMenuBar();
-    addLink(m, C.menuAllOpen(), PageLinks.toChangeQuery("status:open"));
-    addLink(m, C.menuAllMerged(), PageLinks.toChangeQuery("status:merged"));
-    addLink(m, C.menuAllAbandoned(), PageLinks.toChangeQuery("status:abandoned"));
-    menuLeft.add(m, C.menuAll());
+
+
+    MorphingTabPanel allTypes = new MorphingTabPanel();
+    menuLeft.add(allTypes, C.menuAll());
+
+    LinkMenuBar allTopicsMenu = new LinkMenuBar();
+    addLink(allTopicsMenu, C.menuAllOpen(), PageLinks.toTopicQuery("status:open"));
+    addLink(allTopicsMenu, C.menuAllMerged(), PageLinks.toTopicQuery("status:merged"));
+    addLink(allTopicsMenu, C.menuAllAbandoned(), PageLinks.toTopicQuery("status:abandoned"));
+
+    allTypes.add(allTopicsMenu, C.menuTopics());
+
+    LinkMenuBar allChangesMenu = new LinkMenuBar();
+    addLink(allChangesMenu, C.menuAllOpen(), PageLinks.toChangeQuery("status:open"));
+    addLink(allChangesMenu, C.menuAllMerged(), PageLinks.toChangeQuery("status:merged"));
+    addLink(allChangesMenu, C.menuAllAbandoned(), PageLinks.toChangeQuery("status:abandoned"));
+
+    allTypes.add(allChangesMenu, C.menuChanges());
+    allTypes.selectTab(1);
 
     if (signedIn) {
-      m = new LinkMenuBar();
-      addLink(m, C.menuMyChanges(), PageLinks.MINE);
-      addLink(m, C.menuMyDrafts(), PageLinks.toChangeQuery("has:draft"));
-      addLink(m, C.menuMyWatchedChanges(), PageLinks.toChangeQuery("is:watched status:open"));
-      addLink(m, C.menuMyStarredChanges(), PageLinks.toChangeQuery("is:starred"));
-      menuLeft.add(m, C.menuMine());
-      menuLeft.selectTab(1);
+      MorphingTabPanel myEntityTypes = new MorphingTabPanel();
+      menuLeft.add(myEntityTypes, C.menuMine());
+
+      LinkMenuBar myTopicsMenu = new LinkMenuBar();
+      addLink(myTopicsMenu, C.menuMyDashboard(), PageLinks.toAccountTopicDashboard(Gerrit.getUserAccount().getId()));
+
+      myEntityTypes.add(myTopicsMenu, C.menuTopics());
+
+      LinkMenuBar myChangesMenu = new LinkMenuBar();
+      addLink(myChangesMenu, C.menuMyDashboard(), PageLinks.MINE);
+      addLink(myChangesMenu, C.menuMyDrafts(), PageLinks.toChangeQuery("has:draft"));
+      addLink(myChangesMenu, C.menuMyWatched(), PageLinks.toChangeQuery("is:watched status:open"));
+      addLink(myChangesMenu, C.menuMyStarred(), PageLinks.toChangeQuery("is:starred"));
+
+      myEntityTypes.add(myChangesMenu, C.menuChanges());
+      myEntityTypes.selectTab(1);
     } else {
       menuLeft.selectTab(0);
     }

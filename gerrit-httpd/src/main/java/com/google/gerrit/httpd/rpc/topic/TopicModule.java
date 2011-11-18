@@ -43,5 +43,6 @@ public class TopicModule extends RpcServletModule {
     });
     rpc(TopicDetailServiceImpl.class);
     rpc(TopicManageServiceImpl.class);
+    rpc(TopicListServiceImpl.class);
   }
 }

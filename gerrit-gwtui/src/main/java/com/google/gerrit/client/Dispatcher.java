@@ -16,6 +16,7 @@ package com.google.gerrit.client;
 
 import static com.google.gerrit.common.PageLinks.ADMIN_GROUPS;
 import static com.google.gerrit.common.PageLinks.ADMIN_PROJECTS;
+import static com.google.gerrit.common.PageLinks.ENTITY_TOPIC;
 import static com.google.gerrit.common.PageLinks.MINE;
 import static com.google.gerrit.common.PageLinks.REGISTER;
 import static com.google.gerrit.common.PageLinks.SETTINGS;
@@ -61,7 +62,9 @@ import com.google.gerrit.client.changes.PublishCommentScreen;
 import com.google.gerrit.client.changes.QueryScreen;
 import com.google.gerrit.client.patches.PatchScreen;
 import com.google.gerrit.client.rpc.GerritCallback;
+import com.google.gerrit.client.topics.AccountTopicDashboardScreen;
 import com.google.gerrit.client.topics.PublishTopicCommentScreen;
+import com.google.gerrit.client.topics.TopicQueryScreen;
 import com.google.gerrit.client.topics.TopicScreen;
 import com.google.gerrit.client.ui.Screen;
 import com.google.gerrit.common.PageLinks;
@@ -163,8 +166,7 @@ public class Dispatcher {
 
   private static void select(final String token) {
     if (matchPrefix("/q/", token)) {
-      query(token);
-
+      selectQuery(token);
     } else if (matchPrefix("/c/", token)) {
       change(token);
 
@@ -173,10 +175,10 @@ public class Dispatcher {
 
     } else if (matchExact(MINE, token)) {
       Gerrit.display(token, mine(token));
-
+    } else if (matchPrefix("/dashboard/topic/", token)) {
+      topicDashboard(token);
     } else if (matchPrefix("/dashboard/", token)) {
       dashboard(token);
-
     } else if (matchExact(SETTINGS, token) //
         || matchPrefix("/settings/", token) //
         || matchExact("register", token) //
@@ -209,6 +211,21 @@ public class Dispatcher {
 
     } else {
       Gerrit.display(token, new NotFoundScreen());
+    }
+  }
+
+  private static void selectQuery(final String token) {
+    String s = skip(token);
+    final int c = s.indexOf(',');
+    s = s.substring(0, c);
+    // if the entity type is topic or a topic id as been entered
+    if(s.contains(ENTITY_TOPIC) || s.matches("^[tT][\\w\\-]{4,}.*$"))
+    {
+      topicQuery(token);
+    }
+    else
+    {
+      query(token);
     }
   }
 
@@ -345,6 +362,12 @@ public class Dispatcher {
     Gerrit.display(token, new QueryScreen(s.substring(0, c), s.substring(c + 1)));
   }
 
+  private static void topicQuery(String token) {
+    String s = skip(token);
+    final int c = s.indexOf(',');
+    Gerrit.display(token, new TopicQueryScreen(s.substring(0, c), s.substring(c + 1)));
+  }
+
   private static Screen mine(final String token) {
     if (Gerrit.isSignedIn()) {
       return new AccountDashboardScreen(Gerrit.getUserAccount().getId());
@@ -359,6 +382,11 @@ public class Dispatcher {
   private static void dashboard(final String token) {
     Gerrit.display(token, //
         new AccountDashboardScreen(Account.Id.parse(skip(token))));
+  }
+
+  private static void topicDashboard(final String token) {
+    Gerrit.display(token,
+        new AccountTopicDashboardScreen(Account.Id.parse(skip(token))));
   }
 
   private static void change(final String token) {
@@ -765,6 +793,14 @@ public class Dispatcher {
 
   private static String skip(String token) {
     return token.substring(prefixlen);
+  }
+
+  private static boolean matchAnywhere(String want, String token) {
+    if (token.contains(want)) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   private static abstract class AsyncSplit implements RunAsyncCallback {
