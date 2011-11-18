@@ -56,10 +56,13 @@ public interface GerritConstants extends Constants {
   String menuAllAbandoned();
 
   String menuMine();
-  String menuMyChanges();
+  String menuMyDashboard();
   String menuMyDrafts();
-  String menuMyWatchedChanges();
-  String menuMyStarredChanges();
+  String menuMyWatched();
+  String menuMyStarred();
+
+  String menuTopics();
+  String menuChanges();
 
   String menuDiff();
   String menuDiffCommit();

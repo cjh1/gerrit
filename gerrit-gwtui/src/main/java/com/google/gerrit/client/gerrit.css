@@ -465,6 +465,11 @@
   border-bottom: 1px solid trimColor;
 }
 
+.accountDashboard.topicTable, 
+.topicTable {
+  background-color: #FFCC99;		
+}
+
 .accountDashboard.changeTable tr {
   color: #444444;
   background: #F6F6F6;

@@ -57,6 +57,7 @@ public interface GerritCss extends CssResource {
   String changeTablePrevNextLinks();
   String changeTypeCell();
   String changeid();
+  String topicTable();
   String closedstate();
   String commentCell();
   String commentEditorPanel();
