@@ -30,6 +30,7 @@ import com.google.gerrit.common.data.AccountInfo;
 import com.google.gerrit.common.data.AccountInfoCache;
 import com.google.gerrit.common.data.ChangeInfo;
 import com.google.gerrit.common.data.TopicDetail;
+import com.google.gerrit.common.data.TopicInfo;
 import com.google.gerrit.reviewdb.AbstractEntity.Status;
 import com.google.gerrit.reviewdb.Account;
 import com.google.gerrit.reviewdb.Change;
@@ -106,6 +107,10 @@ public class TopicScreen extends Screen {
   public TopicScreen(final ChangeSet.Id toShow) {
     topicId = toShow.getParentKey();
     openChangeSetId = toShow;
+  }
+
+  public TopicScreen(final TopicInfo t) {
+    this(t.getId());
   }
 
   @Override
@@ -242,7 +247,7 @@ public class TopicScreen extends Screen {
     setPageTitle(titleBuf.toString());
   }
 
-  void update(final TopicDetail detail) {
+  public void update(final TopicDetail detail) {
     display(detail);
     changeSetsBlock.setRegisterKeys(true);
   }

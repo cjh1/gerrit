@@ -17,7 +17,10 @@ package com.google.gerrit.common.data;
 import com.google.gerrit.common.auth.SignInRequired;
 import com.google.gerrit.reviewdb.Account;
 import com.google.gerrit.reviewdb.ApprovalCategoryValue;
+import com.google.gerrit.reviewdb.Change;
 import com.google.gerrit.reviewdb.ChangeSet;
+import com.google.gerrit.reviewdb.ChangeSetApproval;
+import com.google.gerrit.reviewdb.PatchSetApproval;
 import com.google.gerrit.reviewdb.Topic;
 import com.google.gwt.user.client.rpc.AsyncCallback;
 import com.google.gwtjsonrpc.client.RemoteJsonService;
@@ -52,4 +55,10 @@ public interface TopicDetailService extends RemoteJsonService {
   void publishComments(ChangeSet.Id csid, String msg,
       Set<ApprovalCategoryValue.Id> tags,
       AsyncCallback<VoidResult> callback);
+
+  void userApprovals(Set<Topic.Id> cids, Account.Id aid,
+      AsyncCallback<ChangeSetApprovalSummarySet> callback);
+
+  void strongestApprovals(Set<Topic.Id> cids,
+      AsyncCallback<ChangeSetApprovalSummarySet> callback);
 }

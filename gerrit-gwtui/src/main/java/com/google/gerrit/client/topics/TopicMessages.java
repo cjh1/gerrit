@@ -22,4 +22,7 @@ public interface TopicMessages extends Messages {
   String submitChangeSet(int id);
   String publishCommentsOnSet(String commitSetId, String topicName);
   String revertTopicDefaultMessage(String topic, int id, int changesetid);
+  String accountTopicDashboardTitle(String fullName);
+
+
 }

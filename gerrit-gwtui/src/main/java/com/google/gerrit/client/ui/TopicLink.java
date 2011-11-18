@@ -17,6 +17,7 @@ package com.google.gerrit.client.ui;
 import com.google.gerrit.client.Gerrit;
 import com.google.gerrit.client.topics.TopicScreen;
 import com.google.gerrit.common.PageLinks;
+import com.google.gerrit.common.data.TopicInfo;
 import com.google.gerrit.reviewdb.Topic;
 import com.google.gwt.core.client.GWT;
 
@@ -26,6 +27,10 @@ public class TopicLink extends InlineHyperlink {
 
   public static String permalink(final Topic.Id t) {
     return GWT.getHostPageBaseURL() + "/t/" + t.get() + "/";
+  }
+  public TopicLink(TopicInfo topicInfo)
+  {
+    this(topicInfo.getKey().get(), topicInfo.getId());
   }
 
   public TopicLink(String topic, Topic.Id topicId) {
@@ -40,5 +45,10 @@ public class TopicLink extends InlineHyperlink {
 
   private Screen createScreen() {
     return new TopicScreen(topicId);
+  }
+
+  protected Topic.Id getTopicId()
+  {
+    return topicId;
   }
 }
