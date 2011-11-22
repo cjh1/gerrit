@@ -17,14 +17,13 @@ package com.google.gerrit.common.data;
 import com.google.gerrit.reviewdb.Topic;
 
 public class TopicInfo extends CommonInfo {
-  protected Topic.Id id;
   protected Topic.Key key;
 
   protected TopicInfo() {
   }
 
   public TopicInfo(final Topic t) {
-    id = t.getId();
+    topicId = t.getId();
     key = t.getKey();
     owner = t.getOwner();
     subject = t.getSubject();
@@ -36,8 +35,9 @@ public class TopicInfo extends CommonInfo {
     sortKey = t.getSortKey();
   }
 
+  /* Just delegate to super class */
   public Topic.Id getId() {
-    return id;
+    return getTopicId();
   }
 
   public Topic.Key getKey() {
