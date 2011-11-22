@@ -363,7 +363,7 @@ public class TopicTable extends NavigationTable<TopicInfo> {
 
   private final class TableChangeLink extends TopicLink {
     private TableChangeLink(final String text, final TopicInfo t) {
-      super(t);
+      super(text, t.getTopicId());
     }
 
     @Override
