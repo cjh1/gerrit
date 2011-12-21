@@ -141,7 +141,7 @@ class PatchSetComplexDisclosurePanel extends CommonComplexDisclosurePanel {
     displayDownload(changeDetail.getChange().getProject(),
         changeDetail.isAllowsAnonymous(),patchSet.getRefName(),
         changeDetail.getChange().getChangeId(), patchSet.getPatchSetId(),
-        R_DOWNLOAD);
+        changeDetail.getChange().getTopic(), R_DOWNLOAD);
 
     body.add(infoTable);
 

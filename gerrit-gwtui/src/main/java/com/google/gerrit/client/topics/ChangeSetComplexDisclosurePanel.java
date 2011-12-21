@@ -122,7 +122,7 @@ class ChangeSetComplexDisclosurePanel extends CommonComplexDisclosurePanel {
     displayUserIdentity(R_AUTHOR, info.getAuthor());
     displayDownload(topicDetail.getTopic().getProject(), topicDetail.isAllowsAnonymous(),
         changeSet.getRefName(), topicDetail.getTopic().getTopicId(),
-        changeSet.getChangeSetId(), R_DOWNLOAD);
+        changeSet.getChangeSetId(), topicDetail.getTopic().getTopic() ,R_DOWNLOAD);
 
     body.add(infoTable);
 

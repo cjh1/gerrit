@@ -45,7 +45,7 @@ public abstract class CommonComplexDisclosurePanel extends ComplexDisclosurePane
 
   protected void displayDownload(final Project.NameKey projectKey,
       final boolean isAllowsAnonymous, final String refname,
-      final int entityId, final int setId,
+      final int entityId, final int setId, final String topic,
       final int downloadRow) {
     final String projectName = projectKey.get();
     final CopyableLabel copyLabel = new CopyableLabel("");
@@ -156,12 +156,18 @@ public abstract class CommonComplexDisclosurePanel extends ComplexDisclosurePane
     }
 
     if (!urls.isEmpty()) {
+      final StringBuilder r = new StringBuilder();
+      // Check out a named topic branch if the topic name is set.
+      if(topic != null) {
+        r.append(" -b ");
+        r.append(topic);
+      }
       commands.add(new DownloadCommandLink(DownloadCommand.CHECKOUT, "checkout") {
         @Override
         void setCurrentUrl(DownloadUrlLink link) {
           urls.setVisible(true);
           copyLabel.setText("git fetch " + link.urlData
-              + " && git checkout FETCH_HEAD");
+              + " && git checkout FETCH_HEAD"+r);
         }
       });
       commands.add(new DownloadCommandLink(DownloadCommand.PULL, "pull") {
