@@ -975,7 +975,10 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
 
 	// Run the pre-receive hook, if it returns output then reject the push
 	// passing the output back to the user
-    String output = hooks.doPreReceiveHook(project, currentUser.getAccount(), newChange.getNewId().getName());
+    String output = hooks.doPreReceiveHook(project,
+                                           destBranch,
+                                           currentUser.getAccount(),
+                                           newChange.getNewId().getName());
     if(output != null)
     {
       reject(newChange, output);
