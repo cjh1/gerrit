@@ -24,6 +24,7 @@ import com.google.gerrit.reviewdb.Branch;
 import com.google.gerrit.reviewdb.Change;
 import com.google.gerrit.reviewdb.ChangeSet;
 import com.google.gerrit.reviewdb.ChangeSetApproval;
+import com.google.gerrit.reviewdb.ChangeSetElement;
 import com.google.gerrit.reviewdb.PatchSet;
 import com.google.gerrit.reviewdb.PatchSetApproval;
 import com.google.gerrit.reviewdb.RevId;
@@ -96,6 +97,13 @@ public class ReviewCommand extends BaseCommand {
       {
         parseTopicId(token);
       }
+      else if (targetChangeSet)
+      {
+        // Get the topic associated with the commit.
+        topic = getTopicForCommit(token);
+        // We will be reviewing the current change set
+        changeSet = db.changeSets().get(topic.currentChangeSetId());
+      }
       else
       {
         patchSetIds.addAll(parsePatchSetId(token));
@@ -106,6 +114,10 @@ public class ReviewCommand extends BaseCommand {
       throw new IllegalArgumentException("database error", e);
     }
   }
+
+  @Option(name = "--topic", aliases = "-t",
+          usage = "indicates we are reviewing a topic, so review operation occur on the current change set of the topic associated with the commit")
+  private boolean targetChangeSet;
 
   @Option(name = "--project", aliases = "-p", usage = "project containing the patch set/change set")
   private ProjectControl projectControl;
@@ -605,30 +617,7 @@ public class ReviewCommand extends BaseCommand {
     // By commit?
     //
     if (patchIdentity.matches("^([0-9a-fA-F]{4," + RevId.LEN + "})$")) {
-      final RevId id = new RevId(patchIdentity);
-      final ResultSet<PatchSet> patches;
-      if (id.isComplete()) {
-        patches = db.patchSets().byRevision(id);
-      } else {
-        patches = db.patchSets().byRevisionRange(id, id.max());
-      }
-
-      final Set<PatchSet.Id> matches = new HashSet<PatchSet.Id>();
-      for (final PatchSet ps : patches) {
-        final Change change = db.changes().get(ps.getId().getParentKey());
-        if (inProject(change)) {
-          matches.add(ps.getId());
-        }
-      }
-
-      switch (matches.size()) {
-        case 1:
-          return matches;
-        case 0:
-          throw error("\"" + patchIdentity + "\" no such patch set");
-        default:
-          throw error("\"" + patchIdentity + "\" matches multiple patch sets");
-      }
+      return parsePatchSetCommit(patchIdentity);
     }
 
     // By older style change,patchset?
@@ -655,6 +644,55 @@ public class ReviewCommand extends BaseCommand {
 
     throw error("\"" + patchIdentity + "\" is not a valid patch set");
   }
+
+  private Set<PatchSet.Id> parsePatchSetCommit(final String patchIdentity)
+      throws OrmException, UnloggedFailure {
+    final RevId id = new RevId(patchIdentity);
+    final ResultSet<PatchSet> patches;
+    if (id.isComplete()) {
+      patches = db.patchSets().byRevision(id);
+    } else {
+      patches = db.patchSets().byRevisionRange(id, id.max());
+    }
+
+    final Set<PatchSet.Id> matches = new HashSet<PatchSet.Id>();
+    for (final PatchSet ps : patches) {
+      final Change change = db.changes().get(ps.getId().getParentKey());
+      if (inProject(change)) {
+        matches.add(ps.getId());
+      }
+    }
+
+    switch (matches.size()) {
+      case 1:
+        return matches;
+      case 0:
+        throw error("\"" + patchIdentity + "\" no such patch set");
+      default:
+        throw error("\"" + patchIdentity + "\" matches multiple patch sets");
+    }
+  }
+
+  private Topic getTopicForCommit(String patchIdentity)
+      throws UnloggedFailure, OrmException {
+
+    if (patchIdentity.matches("^([0-9a-fA-F]{4," + RevId.LEN + "})$")) {
+      PatchSet.Id patchSetId = parsePatchSetCommit(patchIdentity).iterator().next();
+      Change change = db.changes().get(patchSetId.getParentKey());
+      Topic topic = db.topics().get(change.getTopicId());
+
+      if(topic == null)
+      {
+        throw error("\"" + patchIdentity + "\" is not associated with a topic");
+      }
+
+      return topic;
+    }
+
+    throw error("\"" + patchIdentity + "\" is not associated with a topic");
+  }
+
+
 
   private boolean inProject(final Change change) {
     if (projectControl == null) {
