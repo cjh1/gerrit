@@ -325,6 +325,7 @@ public class EventHookRunner {
         addArg(args, "--branch", event.topic.branch);
         addArg(args, "--uploader", getDisplayName(uploader.getAccount()));
         addArg(args, "--changeset", event.changeSet.number);
+        addArg(args, "--commit", revision.get());
 
         runHook(openRepository(topic), changesetCreatedHook, args);
     }
