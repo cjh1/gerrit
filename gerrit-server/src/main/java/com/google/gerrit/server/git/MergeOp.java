@@ -33,6 +33,7 @@ import com.google.gerrit.reviewdb.Project;
 import com.google.gerrit.reviewdb.RevId;
 import com.google.gerrit.reviewdb.ReviewDb;
 import com.google.gerrit.reviewdb.Topic;
+import com.google.gerrit.reviewdb.TopicMessage;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.GerritPersonIdent;
 import com.google.gerrit.server.IdentifiedUser;
@@ -1069,6 +1070,7 @@ public class MergeOp {
 
   private void updateChangeStatus() throws MergeException {
     List<CodeReviewCommit> merged = new ArrayList<CodeReviewCommit>();
+    Set<Topic.Id> markAsNew = new HashSet<Topic.Id>();
 
     for (final Change c : submitted) {
       final CodeReviewCommit commit = commits.get(c.getId());
@@ -1105,6 +1107,8 @@ public class MergeOp {
         case CANNOT_CHERRY_PICK_ROOT:
         case NOT_FAST_FORWARD: {
           setNew(c, message(c, txt));
+          if(c.belongsToTopic())
+            markAsNew.add(c.getTopicId());
           break;
         }
 
@@ -1119,6 +1123,16 @@ public class MergeOp {
         default:
           setNew(c, message(c, "Unspecified merge failure: " + s.name()));
           break;
+      }
+    }
+
+    // Reset associated topics to new
+    for (Topic.Id id : markAsNew) {
+      try {
+        Topic t = schema.topics().get(id);
+        setNew(t, CommitMergeStatus.TOPIC_CONFLICT.getMessage());
+      } catch (OrmException err) {
+        log.warn("Cannot update topic status", err);
       }
     }
 
@@ -1277,6 +1291,19 @@ public class MergeOp {
     }
     final ChangeMessage m =
         new ChangeMessage(new ChangeMessage.Key(c.getId(), uuid), null);
+    m.setMessage(body);
+    return m;
+  }
+
+  private TopicMessage message(final Topic t, final String body) {
+    final String uuid;
+    try {
+      uuid = ChangeUtil.messageUUID(schema);
+    } catch (OrmException e) {
+      return null;
+    }
+    final TopicMessage m =
+        new TopicMessage(new TopicMessage.Key(t.getId(), uuid), null);
     m.setMessage(body);
     return m;
   }
@@ -1440,6 +1467,31 @@ public class MergeOp {
 
   private void setNew(Change c, ChangeMessage msg) {
     sendMergeFail(c, msg, true);
+  }
+
+  private void setNew(Topic t, String msg) {
+    try {
+
+      try {
+        schema.topicMessages().insert(Collections.singleton(message(t, msg)));
+      } catch (OrmException err) {
+        log.warn("Cannot record merge failure message", err);
+      }
+
+      schema.topics().atomicUpdate(t.getId(), new AtomicUpdate<Topic>() {
+        @Override
+        public Topic update(Topic c) {
+          if (c.getStatus().isOpen()) {
+              c.setStatus(Change.Status.NEW);
+              TopicUtil.updated(c);
+          }
+          return c;
+        }
+      });
+    } catch (OrmConcurrencyException err) {
+    } catch (OrmException err) {
+      log.warn("Cannot update topic status", err);
+    }
   }
 
   private void sendMergeFail(Change c, ChangeMessage msg, final boolean makeNew) {
