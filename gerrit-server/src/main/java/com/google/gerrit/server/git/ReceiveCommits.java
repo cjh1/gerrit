@@ -436,11 +436,11 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
         continue;
       }
 
-      String output = hooks.doPreReceiveHook(project,
-                                             cmd.getRefName(),
-                                             currentUser.getAccount(),
-                                             cmd.getOldId(),
-                                             cmd.getNewId());
+      String output = hooks.doUpdateHook(project,
+                                         cmd.getRefName(),
+                                         currentUser.getAccount(),
+                                         cmd.getOldId(),
+                                         cmd.getNewId());
       if(output != null)
       {
         reject(cmd, output);

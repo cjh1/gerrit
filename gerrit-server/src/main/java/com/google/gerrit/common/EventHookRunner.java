@@ -122,8 +122,8 @@ public class EventHookRunner {
     /** Filename of the cla signed hook. */
     private final File claSignedHook;
 
-    /** Filename of the pre receive hook. */
-    private final File preReceiveHook;
+    /** Filename of the update hook. */
+    private final File updateHook;
 
     /** Repository Manager. */
     private final GitRepositoryManager repoManager;
@@ -179,7 +179,7 @@ public class EventHookRunner {
         changeRestoredHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "changeRestoredHook", "change-restored")).getPath());
         refUpdatedHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "refUpdatedHook", "ref-updated")).getPath());
         claSignedHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "claSignedHook", "cla-signed")).getPath());
-        preReceiveHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "preReceiveHook", "pre-receive")).getPath());
+        updateHook = sitePath.resolve(new File(hooksPath, getValue(config, "hooks", "updateHook", "update")).getPath());
         syncHookTimeout = config.getInt("hooks", "syncHookTimeout", 30);
     }
 
@@ -248,10 +248,10 @@ public class EventHookRunner {
     }
 
     /**
-     * Fire the pre receive hook
+     * Fire the update hook
      *
      */
-    public String doPreReceiveHook(final Project project, final String refName,
+    public String doUpdateHook(final Project project, final String refName,
                                    final Account uploader, final ObjectId oldId, final ObjectId newId) {
 
       final List<String> args = new ArrayList<String>();
@@ -265,7 +265,7 @@ public class EventHookRunner {
       String result = null;
 
       try {
-        hookResult = runSyncHook(openRepository(project.getNameKey()), preReceiveHook, args);
+        hookResult = runSyncHook(openRepository(project.getNameKey()), updateHook, args);
       } catch (TimeoutException e) {
         result = "Synchronous hook timed out";
       }
