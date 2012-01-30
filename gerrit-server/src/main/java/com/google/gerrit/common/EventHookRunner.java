@@ -251,14 +251,15 @@ public class EventHookRunner {
      * Fire the pre receive hook
      *
      */
-    public String doPreReceiveHook(final Project project, final Branch.NameKey destBranch,
-                                   final Account uploader, final String commit) {
+    public String doPreReceiveHook(final Project project, final String refName,
+                                   final Account uploader, final ObjectId oldId, final ObjectId newId) {
 
       final List<String> args = new ArrayList<String>();
       addArg(args, "--project", project.getName());
-      addArg(args, "--branch", destBranch.get());
+      addArg(args, "--refname", refName);
       addArg(args, "--uploader", getDisplayName(uploader));
-      addArg(args, "--commit", commit);
+      addArg(args, "--oldrev", oldId.getName());
+      addArg(args, "--newrev", newId.getName());
 
       HookResult hookResult = null;
       String result = null;

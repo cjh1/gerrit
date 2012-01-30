@@ -436,6 +436,17 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
         continue;
       }
 
+      String output = hooks.doPreReceiveHook(project,
+                                             cmd.getRefName(),
+                                             currentUser.getAccount(),
+                                             cmd.getOldId(),
+                                             cmd.getNewId());
+      if(output != null)
+      {
+        reject(cmd, output);
+        continue;
+      }
+
       if (cmd.getRefName().startsWith(NEW_CHANGE)) {
         parseNewChangeCommand(cmd);
         continue;
@@ -970,18 +981,6 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
     //
     if (toCreate.isEmpty() && toReplace.isEmpty() && (!topicSetting)) {
       reject(newChange, "no new changes");
-      return;
-    }
-
-	// Run the pre-receive hook, if it returns output then reject the push
-	// passing the output back to the user
-    String output = hooks.doPreReceiveHook(project,
-                                           destBranch,
-                                           currentUser.getAccount(),
-                                           newChange.getNewId().getName());
-    if(output != null)
-    {
-      reject(newChange, output);
       return;
     }
 
