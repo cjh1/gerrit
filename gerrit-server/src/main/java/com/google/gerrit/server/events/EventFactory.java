@@ -27,6 +27,7 @@ import com.google.gerrit.reviewdb.PatchSetApproval;
 import com.google.gerrit.reviewdb.RevId;
 import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.reviewdb.TrackingId;
+import com.google.gerrit.server.TopicUtil;
 import com.google.gerrit.server.account.AccountCache;
 import com.google.gerrit.server.config.CanonicalWebUrl;
 import com.google.inject.Inject;
@@ -325,11 +326,7 @@ public class EventFactory {
     String topicUrl = null;
 
     if (topic != null && urlProvider.get() != null) {
-      final StringBuilder r = new StringBuilder();
-      r.append(urlProvider.get());
-      r.append("#/t/");
-      r.append(topic.getTopicId());
-      topicUrl = r.toString();
+      topicUrl = TopicUtil.getTopicUrl(urlProvider.get(), topic.getId());
     }
 
     return topicUrl;

@@ -514,4 +514,13 @@ public class TopicUtil {
     }
     return null;
   }
+
+  public static String getTopicUrl(final String baseUrl, final Topic.Id topicId) {
+    final StringBuilder r = new StringBuilder();
+    r.append(baseUrl);
+    r.append("#/t/");
+    r.append(topicId);
+
+    return r.toString();
+  }
 }

@@ -402,6 +402,7 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
       final String url = canonicalWebUrl;
       rp.sendMessage("");
       rp.sendMessage("New Changes:");
+
       for (final Change.Id c : allNewChanges) {
         rp.sendMessage("  " + url + c.get());
       }
@@ -1052,7 +1053,12 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
             // Show info in the command line
             //
             rp.sendMessage("");
-            rp.sendMessage("Created new topic with ID: " + topicId.get());
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("Created new topic with ID: ").append(topicId.get());
+            sb.append(" (").append(TopicUtil.getTopicUrl(canonicalWebUrl, topicId)).append(")");
+
+            rp.sendMessage(sb.toString());
           } else {
             // This is a security check. If everything is toCreate
             // and currentChanges == toAbandon, is the user referring to
@@ -1068,7 +1074,12 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
             // Show info in the command line
             //
             rp.sendMessage("");
-            rp.sendMessage("New ChangeSet (" + topic.currentChangeSetId().get() + ") in topic " + topicId);
+            StringBuilder sb = new StringBuilder();
+            sb.append("New ChangeSet (");
+            sb.append(topic.currentChangeSetId().get());
+            sb.append(") in topic ").append(topicId);
+            sb.append(" (").append(TopicUtil.getTopicUrl(canonicalWebUrl, topicId)).append(")");
+            rp.sendMessage(sb.toString());
           }
         } else {
           // That means that there were no additions or replacements
