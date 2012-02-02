@@ -304,7 +304,7 @@ public class TopicUtil {
 
     Topic parentTopic = new Topic(topicKey, topicId, me, destBranch);
     parentTopic.setTopic(destTopicName);
-    parentTopic.setSortKey("lastUpdatedOn");
+    TopicUtil.computeSortKey(parentTopic);
     parentTopic.nextChangeSetId();
 
     // Now we need to create the changeSet
