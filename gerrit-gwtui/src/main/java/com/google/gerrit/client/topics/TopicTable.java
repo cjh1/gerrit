@@ -196,7 +196,7 @@ public class TopicTable extends NavigationTable<TopicInfo> {
 
     table.setWidget(row, C_SUBJECT, new TableChangeLink(s, t));
     table.setWidget(row, C_OWNER, link(t.getOwner()));
-    table.setWidget(row, C_PROJECT, new ProjectLink(t.getProject().getKey(), t
+    table.setWidget(row, C_PROJECT, new ProjectTopicLink(t.getProject().getKey(), t
         .getStatus()));
     table.setWidget(row, C_BRANCH, new BranchTopicLink(t.getProject().getKey(), t
         .getStatus(), t.getBranch(), t.getTopic(), t.getId()));

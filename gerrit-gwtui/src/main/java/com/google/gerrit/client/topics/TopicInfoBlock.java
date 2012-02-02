@@ -82,7 +82,7 @@ public class TopicInfoBlock extends Composite {
     table.setWidget(R_TOPIC_ID, 1, changeIdLabel);
 
     table.setWidget(R_OWNER, 1, AccountDashboardLink.link(acc, topic.getOwner()));
-    table.setWidget(R_PROJECT, 1, new ProjectLink(topic.getProject(), topic.getStatus()));
+    table.setWidget(R_PROJECT, 1, new ProjectTopicLink(topic.getProject(), topic.getStatus()));
     table.setWidget(R_BRANCH, 1, new BranchLink(dst.getShortName(), topic.getProject(), topic.getStatus(), dst.get(), null));
     table.setText(R_UPLOADED, 1, mediumFormat(topic.getCreatedOn()));
     table.setText(R_UPDATED, 1, mediumFormat(topic.getLastUpdatedOn()));

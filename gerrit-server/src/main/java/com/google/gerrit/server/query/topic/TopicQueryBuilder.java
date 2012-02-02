@@ -36,6 +36,8 @@ import com.google.gerrit.server.query.Predicate;
 import com.google.gerrit.server.query.QueryBuilder;
 import com.google.gerrit.server.query.QueryParseException;
 import com.google.gerrit.server.query.SingleGroupUser;
+import com.google.gerrit.server.query.topic.ProjectPredicate;
+import com.google.gerrit.server.query.topic.RegexProjectPredicate;
 import com.google.gwtorm.client.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -336,5 +338,12 @@ public class TopicQueryBuilder extends QueryBuilder<TopicData> {
 
       throw error("Unsupported query:" + query);
     }
+  }
+
+  @Operator
+  public Predicate<TopicData> project(String name) {
+    if (name.startsWith("^"))
+      return new RegexProjectPredicate(args.dbProvider, name);
+    return new ProjectPredicate(args.dbProvider, name);
   }
 }

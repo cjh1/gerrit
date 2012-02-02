@@ -12,30 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.server.query.change;
+package com.google.gerrit.server.query.topic;
 
-import com.google.gerrit.reviewdb.Change;
-import com.google.gerrit.reviewdb.Project;
 import com.google.gerrit.reviewdb.ReviewDb;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.server.query.AbstractRegexProjectPredicate;
 import com.google.gwtorm.client.OrmException;
 import com.google.inject.Provider;
 
-class RegexProjectPredicate extends AbstractRegexProjectPredicate<ChangeData> {
+class RegexProjectPredicate extends AbstractRegexProjectPredicate<TopicData> {
 
   RegexProjectPredicate(Provider<ReviewDb> dbProvider, String re) {
     super(dbProvider, re);
   }
 
   @Override
-  public boolean match(final ChangeData object) throws OrmException {
-    Change change = object.change(dbProvider);
-    if (change == null) {
+  public boolean match(final TopicData object) throws OrmException {
+    Topic topic = object.topic(dbProvider);
+    if (topic == null) {
       return false;
     }
 
-    Project.NameKey p = change.getDest().getParentKey();
-    return pattern.run(p.get());
+    return super.match(topic.getDest());
   }
-
 }

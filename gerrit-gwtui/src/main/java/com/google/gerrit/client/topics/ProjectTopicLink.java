@@ -12,40 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.gerrit.client.ui;
+package com.google.gerrit.client.topics;
 
 import com.google.gerrit.client.Gerrit;
-import com.google.gerrit.client.changes.QueryScreen;
+import com.google.gerrit.client.ui.ProjectLink;
+import com.google.gerrit.client.ui.Screen;
 import com.google.gerrit.common.PageLinks;
 import com.google.gerrit.reviewdb.AbstractEntity.Status;
 import com.google.gerrit.reviewdb.Project;
 
-/** Link to the open changes of a project. */
-public class ProjectLink extends InlineHyperlink {
-  private Project.NameKey project;
-  private Status status;
-  private String query;
+public class ProjectTopicLink extends ProjectLink {
 
-  public ProjectLink(final Project.NameKey proj, Status stat) {
+  public ProjectTopicLink(final Project.NameKey proj, Status stat) {
     this(proj.get(), proj, stat);
   }
 
-  public ProjectLink(final String text, final Project.NameKey proj,
+  public ProjectTopicLink(final String text, final Project.NameKey proj,
       Status stat) {
-    this(text, proj, stat, PageLinks.projectQuery(proj, stat),
-         PageLinks.toChangeQuery(PageLinks.projectQuery(proj, stat)));
-  }
-
-  public ProjectLink(final String text, final Project.NameKey proj,
-      Status stat, String query, String historyToken) {
-    super(text, historyToken);
-    status = stat;
-    project = proj;
-    this.query = query;
-  }
-
-  protected String getQuery() {
-    return query;
+    super(text, proj, stat, PageLinks.ENTITY_TOPIC + " " + PageLinks.projectQuery(proj, stat),
+        PageLinks.toTopicQuery(PageLinks.projectQuery(proj, stat)));
   }
 
   @Override
@@ -54,6 +39,6 @@ public class ProjectLink extends InlineHyperlink {
   }
 
   private Screen createScreen() {
-    return QueryScreen.forQuery(getQuery());
+    return TopicQueryScreen.forQuery(getQuery());
   }
 }
