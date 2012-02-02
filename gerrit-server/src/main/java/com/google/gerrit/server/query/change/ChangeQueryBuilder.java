@@ -91,6 +91,7 @@ public class ChangeQueryBuilder extends QueryBuilder<ChangeData> {
   public static final String FIELD_TR = "tr";
   public static final String FIELD_VISIBLETO = "visibleto";
   public static final String FIELD_WATCHEDBY = "watchedby";
+  public static final String FIELD_TOPICCHANGE = "topicChange";
 
   private static final QueryBuilder.Definition<ChangeData, ChangeQueryBuilder> mydef =
       new QueryBuilder.Definition<ChangeData, ChangeQueryBuilder>(
@@ -232,6 +233,10 @@ public class ChangeQueryBuilder extends QueryBuilder<ChangeData> {
 
     if ("reviewed".equalsIgnoreCase(value)) {
       return new IsReviewedPredicate(args.dbProvider);
+    }
+
+    if ("topicchange".equalsIgnoreCase(value)) {
+      return new IsTopicChangePredicate();
     }
 
     try {

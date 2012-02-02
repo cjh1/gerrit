@@ -493,9 +493,9 @@ public class Gerrit implements EntryPoint {
     allTypes.add(allTopicsMenu, C.menuTopics());
 
     LinkMenuBar allChangesMenu = new LinkMenuBar();
-    addLink(allChangesMenu, C.menuAllOpen(), PageLinks.toChangeQuery("status:open"));
-    addLink(allChangesMenu, C.menuAllMerged(), PageLinks.toChangeQuery("status:merged"));
-    addLink(allChangesMenu, C.menuAllAbandoned(), PageLinks.toChangeQuery("status:abandoned"));
+    addLink(allChangesMenu, C.menuAllOpen(), PageLinks.toChangeQuery("status:open -is:topicchange"));
+    addLink(allChangesMenu, C.menuAllMerged(), PageLinks.toChangeQuery("status:merged -is:topicchange"));
+    addLink(allChangesMenu, C.menuAllAbandoned(), PageLinks.toChangeQuery("status:abandoned -is:topicchange"));
 
     allTypes.add(allChangesMenu, C.menuChanges());
     allTypes.selectTab(1);
@@ -511,9 +511,9 @@ public class Gerrit implements EntryPoint {
 
       LinkMenuBar myChangesMenu = new LinkMenuBar();
       addLink(myChangesMenu, C.menuMyDashboard(), PageLinks.MINE);
-      addLink(myChangesMenu, C.menuMyDrafts(), PageLinks.toChangeQuery("has:draft"));
-      addLink(myChangesMenu, C.menuMyWatched(), PageLinks.toChangeQuery("is:watched status:open"));
-      addLink(myChangesMenu, C.menuMyStarred(), PageLinks.toChangeQuery("is:starred"));
+      addLink(myChangesMenu, C.menuMyDrafts(), PageLinks.toChangeQuery("has:draft -is:topicchange"));
+      addLink(myChangesMenu, C.menuMyWatched(), PageLinks.toChangeQuery("is:watched status:open -is:topicchange"));
+      addLink(myChangesMenu, C.menuMyStarred(), PageLinks.toChangeQuery("is:starred -is:topicchange"));
 
       myEntityTypes.add(myChangesMenu, C.menuChanges());
       myEntityTypes.selectTab(1);
