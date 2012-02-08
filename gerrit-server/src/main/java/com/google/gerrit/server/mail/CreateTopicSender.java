@@ -16,24 +16,24 @@ package com.google.gerrit.server.mail;
 
 import com.google.gerrit.reviewdb.Change;
 import com.google.gerrit.reviewdb.AccountProjectWatch.NotifyType;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.server.account.GroupCache;
 import com.google.gerrit.server.ssh.SshInfo;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 
 
-/** Notify interested parties of a brand new change. */
-public class CreateChangeSender extends NewChangeSender {
+public class CreateTopicSender extends NewTopicSender {
   public static interface Factory {
-    public CreateChangeSender create(Change change);
+    public CreateTopicSender create(Change change);
   }
 
   private final GroupCache groupCache;
 
   @Inject
-  public CreateChangeSender(EmailArguments ea, SshInfo sshInfo,
-      GroupCache groupCache, @Assisted Change c) {
-    super(ea, sshInfo, c);
+  public CreateTopicSender(EmailArguments ea, SshInfo sshInfo,
+      GroupCache groupCache, @Assisted Topic t) {
+    super(ea, sshInfo, t);
     this.groupCache = groupCache;
   }
 

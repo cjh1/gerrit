@@ -14,20 +14,28 @@
 
 package com.google.gerrit.server.mail;
 
+import com.google.gerrit.common.errors.NoSuchEntityException;
 import com.google.gerrit.reviewdb.Account;
 import com.google.gerrit.reviewdb.Account.Id;
 import com.google.gerrit.reviewdb.AccountGroup;
 import com.google.gerrit.reviewdb.AccountProjectWatch;
 import com.google.gerrit.reviewdb.Change;
 import com.google.gerrit.reviewdb.ChangeMessage;
+import com.google.gerrit.reviewdb.ChangeSet;
+import com.google.gerrit.reviewdb.ChangeSetApproval;
+import com.google.gerrit.reviewdb.ChangeSetElement;
+import com.google.gerrit.reviewdb.ChangeSetInfo;
 import com.google.gerrit.reviewdb.Patch;
 import com.google.gerrit.reviewdb.PatchSet;
 import com.google.gerrit.reviewdb.PatchSetApproval;
 import com.google.gerrit.reviewdb.PatchSetInfo;
 import com.google.gerrit.reviewdb.Project;
+import com.google.gerrit.reviewdb.RevId;
 import com.google.gerrit.reviewdb.StarredChange;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.reviewdb.TopicMessage;
 import com.google.gerrit.server.IdentifiedUser;
+import com.google.gerrit.server.TopicUtil;
 import com.google.gerrit.server.patch.PatchList;
 import com.google.gerrit.server.patch.PatchListEntry;
 import com.google.gerrit.server.patch.PatchSetInfoNotAvailableException;
@@ -36,6 +44,9 @@ import com.google.gerrit.server.query.Predicate;
 import com.google.gerrit.server.query.QueryParseException;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.ChangeQueryBuilder;
+import com.google.gerrit.server.query.topic.TopicData;
+import com.google.gerrit.server.query.topic.TopicQueryBuilder;
+import com.google.gerrit.server.topic.ChangeSetInfoNotAvailableException;
 import com.google.gwtorm.client.OrmException;
 
 import java.text.MessageFormat;
@@ -47,29 +58,25 @@ import java.util.List;
 import java.util.Set;
 
 /** Sends an email to one or more interested parties. */
-public abstract class ChangeEmail extends ReviewEmail {
-  protected final Change change;
-  protected PatchSet patchSet;
-  protected PatchSetInfo patchSetInfo;
-  protected ChangeData changeData;
-  protected ChangeEmail(EmailArguments ea, final Change c, final String mc) {
+public abstract class TopicEmail extends ReviewEmail {
+  protected final Topic topic;
+  protected ChangeSet changeSet;
+  protected ChangeSetInfo changeSetInfo;
+  protected TopicData topicData;
+  protected TopicEmail(EmailArguments ea, final Topic t, final String mc) {
     super(ea, mc);
-    change = c;
-    changeData = change != null ? new ChangeData(change) : null;
+    topic = t;
+    topicData = topic != null ? new TopicData(topic) : null;
     emailOnlyAuthors = false;
   }
 
-  public void setPatchSet(final PatchSet ps) {
-    patchSet = ps;
+  public void setChangeSet(final ChangeSet cs) {
+    changeSet = cs;
   }
 
-  public void setPatchSet(final PatchSet ps, final PatchSetInfo psi) {
-    patchSet = ps;
-    patchSetInfo = psi;
-  }
-
-  public void setChangeMessage(final ChangeMessage cm) {
-    message = cm;
+  public void setChangeSet(final ChangeSet cs, final ChangeSetInfo csi) {
+    changeSet = cs;
+    changeSetInfo = csi;
   }
 
   public void setTopicMessage(final TopicMessage cm) {
@@ -78,7 +85,7 @@ public abstract class ChangeEmail extends ReviewEmail {
 
   /** Format the message body by calling {@link #appendText(String)}. */
   protected void format() throws EmailException {
-    formatChange();
+    formatTopic();
     appendText(velocifyFile("ChangeFooter.vm"));
     formatReviewers(getReviewers());
   }
@@ -86,8 +93,8 @@ public abstract class ChangeEmail extends ReviewEmail {
   protected Set<Account.Id> getReviewers()  {
     HashSet<Account.Id> reviewers = new HashSet<Account.Id>();
     try {
-    for (PatchSetApproval p : args.db.get().patchSetApprovals().byChange(
-        change.getId())) {
+    for (ChangeSetApproval p : args.db.get().changeSetApprovals().byTopic(
+        topic.getId())) {
       reviewers.add(p.getAccountId());
     }
     } catch (OrmException e) {
@@ -98,25 +105,29 @@ public abstract class ChangeEmail extends ReviewEmail {
   }
 
   /** Format the message body by calling {@link #appendText(String)}. */
-  protected abstract void formatChange() throws EmailException;
+  protected abstract void formatTopic() throws EmailException;
 
   /** Setup the message headers and envelope (TO, CC, BCC). */
   protected void init() throws EmailException {
-    initProjectState(change.getProject());
+    initProjectState(topic.getProject());
 
-    if (patchSet == null) {
+    if (changeSet == null) {
       try {
-        patchSet = args.db.get().patchSets().get(change.currentPatchSetId());
+        changeSet = args.db.get().changeSets().get(topic.currentChangeSetId());
       } catch (OrmException err) {
-        patchSet = null;
+        changeSet = null;
       }
     }
 
-    if (patchSet != null && patchSetInfo == null) {
+    if (changeSet != null && changeSetInfo == null) {
       try {
-        patchSetInfo = args.patchSetInfoFactory.get(patchSet.getId());
-      } catch (PatchSetInfoNotAvailableException err) {
-        patchSetInfo = null;
+        changeSetInfo = args.changeSetInfoFactory.get(changeSet.getId());
+      } catch (ChangeSetInfoNotAvailableException err) {
+        changeSetInfo = null;
+      } catch (OrmException e) {
+        changeSetInfo = null;
+      } catch (NoSuchEntityException e) {
+        changeSetInfo = null;
       }
     }
     authors = getAuthors();
@@ -126,10 +137,10 @@ public abstract class ChangeEmail extends ReviewEmail {
     if (message != null && message.getWrittenOn() != null) {
       setHeader("Date", new Date(message.getWrittenOn().getTime()));
     }
-    setChangeSubjectHeader();
-    setHeader("X-Gerrit-Change-Id", "" + change.getKey().get());
+    setTopicSubjectHeader();
+    setHeader("X-Gerrit-Topic-Id", "" + topic.getKey().get());
     setListIdHeader();
-    setChangeUrlHeader();
+    setTopicUrlHeader();
     setCommitIdHeader();
   }
 
@@ -141,91 +152,79 @@ public abstract class ChangeEmail extends ReviewEmail {
     }
   }
 
-  private void setChangeUrlHeader() {
-    final String u = getChangeUrl();
+  private void setTopicUrlHeader() {
+    final String u = getTopicUrl();
     if (u != null) {
-      setHeader("X-Gerrit-ChangeURL", "<" + u + ">");
+      setHeader("X-Gerrit-TopicURL", "<" + u + ">");
     }
   }
 
   private void setCommitIdHeader() {
-    if (patchSet != null && patchSet.getRevision() != null
-        && patchSet.getRevision().get() != null
-        && patchSet.getRevision().get().length() > 0) {
-      setCommitIdHeader(patchSet.getRevision());
+    if (changeSet != null) {
+
+      try {
+        RevId tip = TopicUtil.getChangeSetTip(args.db.get(), changeSet);
+        if(tip != null && tip.get() != null && tip.get().length() > 0) {
+          setCommitIdHeader(tip);
+        }
+      } catch (OrmException e) {
+      }
     }
   }
 
-  private void setChangeSubjectHeader() throws EmailException {
-    setSubjectHeader("ChangeSubject.vm");
-  }
-
-  /** Get a link to the change; null if the server doesn't know its own address. */
-  public String getChangeUrl() {
-    if (change != null && getGerritUrl() != null) {
-      final StringBuilder r = new StringBuilder();
-      r.append(getGerritUrl());
-      r.append(change.getChangeId());
-      return r.toString();
-    }
-    return null;
+  private void setTopicSubjectHeader() throws EmailException {
+    setSubjectHeader("ChangeSubject.vm"); // FIXME: This can be reused for now
   }
 
   public String getChangeMessageThreadId() throws EmailException {
-    return velocify("<gerrit.${change.createdOn.time}.$change.key.get()" +
+    return velocify("<gerrit.${topic.createdOn.time}.$topic.key.get()" +
                     "@$email.gerritHost>");
   }
 
-  /** Format the change message and the affected file list. */
-  protected void formatChangeDetail() {
-    appendText(getChangeDetail());
+  protected void formatTopicDetail() {
+    appendText(getTopicDetail());
   }
 
   /** Create the change message and the affected file list. */
-  public String getChangeDetail() {
+  public String getTopicDetail() {
     StringBuilder detail = new StringBuilder();
 
-    if (patchSetInfo != null) {
-      detail.append(patchSetInfo.getMessage().trim() + "\n");
+    if (changeSetInfo != null) {
+      detail.append(changeSetInfo.getMessage().trim() + "\n");
     } else {
-      detail.append(change.getSubject().trim() + "\n");
+      detail.append(topic.getSubject().trim() + "\n");
     }
 
-    if (patchSet != null) {
-      detail.append("---\n");
-      PatchList patchList = getPatchList();
-      for (PatchListEntry p : patchList.getPatches()) {
-        if (Patch.COMMIT_MSG.equals(p.getNewName())) {
-          continue;
+    detail.append("---\n");
+
+    if (changeSet != null) {
+
+      try {
+
+        List<ChangeSetElement> changes = args.db.get().changeSetElements().byChangeSet(changeSet.getId()).toList();
+
+        for (ChangeSetElement cse : changes) {
+          Change c = args.db.get().changes().get(cse.getChangeId());
+          detail.append(c.getKey());
+          detail.append(" ").append(c.getSubject());
+          detail.append("\n");
         }
-        detail.append(p.getChangeType().getCode() + " " + p.getNewName() + "\n");
+
+        detail.append("\n");
+      } catch(OrmException oex) {
+
       }
-      detail.append(MessageFormat.format("" //
-          + "{0,choice,0#0 files|1#1 file|1<{0} files} changed, " //
-          + "{1,choice,0#0 insertions|1#1 insertion|1<{1} insertions}(+), " //
-          + "{2,choice,0#0 deletions|1#1 deletion|1<{2} deletions}(-)" //
-          + "\n", patchList.getPatches().size() - 1, //
-          patchList.getInsertions(), //
-          patchList.getDeletions()));
-      detail.append("\n");
     }
+
     return detail.toString();
   }
 
-
-  /** Get the patch list corresponding to this patch set. */
-  protected PatchList getPatchList() {
-    if (patchSet != null) {
-      return args.patchListCache.get(change, patchSet);
-    }
-    return null;
-  }
 
   /** Get the groups which own the project. */
   protected Set<AccountGroup.UUID> getProjectOwners() {
     final ProjectState r;
 
-    r = args.projectCache.get(change.getProject());
+    r = args.projectCache.get(topic.getProject());
     return r != null ? r.getOwners() : Collections.<AccountGroup.UUID> emptySet();
   }
 
@@ -238,23 +237,25 @@ public abstract class ChangeEmail extends ReviewEmail {
 
   /** BCC any user who has starred this change. */
   protected void bccStarredBy() {
-    try {
-      // BCC anyone who has starred this change.
-      //
-      for (StarredChange w : args.db.get().starredChanges().byChange(
-          change.getId())) {
-        add(RecipientType.BCC, w.getAccountId());
-      }
-    } catch (OrmException err) {
-      // Just don't BCC everyone. Better to send a partial message to those
-      // we already have queued up then to fail deliver entirely to people
-      // who have a lower interest in the change.
-    }
+// Currently no support for topic stars
+//    try {
+//      // BCC anyone who has starred this change.
+//      //
+//
+//      for (StarredChange w : args.db.get().starredChanges().byChange(
+//          change.getId())) {
+//        add(RecipientType.BCC, w.getAccountId());
+//      }
+//    } catch (OrmException err) {
+//      // Just don't BCC everyone. Better to send a partial message to those
+//      // we already have queued up then to fail deliver entirely to people
+//      // who have a lower interest in the change.
+//    }
   }
 
   /** Returns all watches that are relevant */
   protected final List<AccountProjectWatch> getWatches() throws OrmException {
-    if (changeData == null) {
+    if (topicData == null) {
       return Collections.emptyList();
     }
 
@@ -262,7 +263,7 @@ public abstract class ChangeEmail extends ReviewEmail {
     Set<Account.Id> projectWatchers = new HashSet<Account.Id>();
 
     for (AccountProjectWatch w : args.db.get().accountProjectWatches()
-        .byProject(change.getProject())) {
+        .byProject(topic.getProject())) {
       projectWatchers.add(w.getAccountId());
       add(matching, w);
     }
@@ -282,20 +283,20 @@ public abstract class ChangeEmail extends ReviewEmail {
       throws OrmException {
     IdentifiedUser user =
         args.identifiedUserFactory.create(args.db, w.getAccountId());
-    ChangeQueryBuilder qb = args.changeQueryBuilder.create(user);
-    Predicate<ChangeData> p = qb.is_visible();
+    TopicQueryBuilder qb = args.topicQueryBuilder.create(user);
+    Predicate<TopicData> p = qb.is_visible();
     if (w.getFilter() != null) {
       try {
         qb.setAllowFile(true);
         p = Predicate.and(qb.parse(w.getFilter()), p);
-        p = args.changeQueryRewriter.get().rewrite(p);
-        if (p.match(changeData)) {
+        p = args.topicQueryRewriter.get().rewrite(p);
+        if (p.match(topicData)) {
           matching.add(w);
         }
       } catch (QueryParseException e) {
         // Ignore broken filter expressions.
       }
-    } else if (p.match(changeData)) {
+    } else if (p.match(topicData)) {
       matching.add(w);
     }
   }
@@ -312,10 +313,10 @@ public abstract class ChangeEmail extends ReviewEmail {
 
   private void ccApprovals(final boolean includeZero) {
     try {
-      // CC anyone else who has posted an approval mark on this change
+      // CC anyone else who has posted an approval mark on this topic
       //
-      for (PatchSetApproval ap : args.db.get().patchSetApprovals().byChange(
-          change.getId())) {
+      for (ChangeSetApproval ap : args.db.get().changeSetApprovals().byTopic(
+          topic.getId())) {
         if (!includeZero && ap.getValue() == 0) {
           continue;
         }
@@ -327,37 +328,68 @@ public abstract class ChangeEmail extends ReviewEmail {
 
   protected boolean isVisibleTo(final Account.Id to) {
     return projectState == null
-        || change == null
+        || topic == null
         || projectState.controlFor(args.identifiedUserFactory.create(to))
-            .controlFor(change).isVisible();
+            .controlFor(topic).isVisible();
   }
 
   /** Find all users who are authors of any part of this change. */
   protected Set<Account.Id> getAuthors() {
     Set<Account.Id> authors = new HashSet<Account.Id>();
 
-    authors.add(change.getOwner());
-    if (patchSet != null) {
-      authors.add(patchSet.getUploader());
+    authors.add(topic.getOwner());
+    if (changeSet != null) {
+      authors.add(changeSet.getUploader());
+
+      try {
+        List<ChangeSetElement> changes = args.db.get().changeSetElements().byChangeSet(changeSet.getId()).toList();
+
+        for (ChangeSetElement cse : changes) {
+          Change c = args.db.get().changes().get(cse.getChangeId());
+          authors.add(c.getOwner());
+
+          PatchSet currentPatchSet = args.db.get().patchSets().get(c.currentPatchSetId());
+          authors.add(currentPatchSet.getUploader());
+
+          try {
+            PatchSetInfo patchSetInfo = args.patchSetInfoFactory.get(currentPatchSet.getId());
+            authors.add(patchSetInfo.getAuthor().getAccount());
+            authors.add(patchSetInfo.getCommitter().getAccount());
+          } catch (PatchSetInfoNotAvailableException err) {
+          }
+        }
+      } catch (OrmException e) {
+      }
     }
-    if (patchSetInfo != null) {
-      authors.add(patchSetInfo.getAuthor().getAccount());
-      authors.add(patchSetInfo.getCommitter().getAccount());
+
+    if (changeSetInfo != null) {
+      authors.add(changeSetInfo.getAuthor().getAccount());
     }
+
     return authors;
   }
 
   @Override
   protected void setupVelocityContext() {
     super.setupVelocityContext();
-    velocityContext.put("change", change);
-    velocityContext.put("changeId", change.getKey());
+    velocityContext.put("topic", topic);
+    velocityContext.put("topicId", topic.getKey());
     velocityContext.put("coverLetter", getCoverLetter());
-    velocityContext.put("branch", change.getDest());
+    velocityContext.put("branch", topic.getDest());
     velocityContext.put("fromName", getNameFor(fromId));
     velocityContext.put("projectName", //
         projectState != null ? projectState.getProject().getName() : null);
-    velocityContext.put("patchSet", patchSet);
-    velocityContext.put("patchSetInfo", patchSetInfo);
+    velocityContext.put("changeSet", changeSet);
+    velocityContext.put("changeSetInfo", changeSetInfo);
+  }
+
+  /** Get a link to the change; null if the server doesn't know its own address. */
+  public String getTopicUrl() {
+    if (topic != null && getGerritUrl() != null) {
+
+      return TopicUtil.getTopicUrl(getGerritUrl(), topic.getId());
+
+    }
+    return null;
   }
 }

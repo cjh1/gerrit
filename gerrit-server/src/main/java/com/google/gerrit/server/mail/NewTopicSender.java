@@ -15,31 +15,27 @@
 package com.google.gerrit.server.mail;
 
 import com.google.gerrit.reviewdb.Account;
+import com.google.gerrit.reviewdb.Account.Id;
 import com.google.gerrit.reviewdb.Change;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.server.ssh.SshInfo;
-import com.google.inject.Inject;
-import com.google.inject.assistedinject.Assisted;
 
 import com.jcraft.jsch.HostKey;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Send notice of new patch sets for reviewers. */
-public class ReplacePatchSetSender extends ReplyToChangeSender {
-  public static interface Factory {
-    public ReplacePatchSetSender create(Change change);
-  }
-
-  private final Set<Account.Id> extraCC = new HashSet<Account.Id>();
+/** Sends an email alerting a user to a new topic for them to review. */
+public abstract class NewTopicSender extends TopicEmail {
   private final SshInfo sshInfo;
+  private final Set<Account.Id> extraCC = new HashSet<Account.Id>();
 
-  @Inject
-  public ReplacePatchSetSender(EmailArguments ea, SshInfo si, @Assisted Change c) {
-    super(ea, c, "newpatchset");
-    sshInfo = si;
+  protected NewTopicSender(EmailArguments ea, SshInfo sshInfo, Topic t) {
+    super(ea, t, "newtopic");
+    this.sshInfo = sshInfo;
   }
 
   public void addExtraCC(final Collection<Account.Id> cc) {
@@ -50,19 +46,27 @@ public class ReplacePatchSetSender extends ReplyToChangeSender {
   protected void init() throws EmailException {
     super.init();
 
-    if (fromId != null) {
-      // Don't call yourself a reviewer of your own patch set.
-      //
-      reviewers.remove(fromId);
-    }
+    setHeader("Message-ID", getChangeMessageThreadId());
+
     add(RecipientType.TO, reviewers);
     add(RecipientType.CC, extraCC);
     rcptToAuthors(RecipientType.CC);
   }
 
   @Override
-  protected void formatChange() throws EmailException {
-    appendText(velocifyFile("ReplacePatchSet.vm"));
+  protected void formatTopic() throws EmailException {
+    appendText(velocifyFile("NewTopic.vm"));
+  }
+
+  public List<String> getReviewerNames() {
+    if (reviewers.isEmpty()) {
+      return null;
+    }
+    List<String> names = new ArrayList<String>();
+    for (Account.Id id : reviewers) {
+      names.add(getNameFor(id));
+    }
+    return names;
   }
 
   public String getSshHost() {

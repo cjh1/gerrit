@@ -1,4 +1,4 @@
-// Copyright (C) 2009 The Android Open Source Project
+// Copyright (C) 2011 The Android Open Source Project
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,36 +15,32 @@
 package com.google.gerrit.server.mail;
 
 import com.google.gerrit.reviewdb.Change;
-import com.google.gerrit.reviewdb.AccountProjectWatch.NotifyType;
-import com.google.gerrit.server.account.GroupCache;
-import com.google.gerrit.server.ssh.SshInfo;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 
-
-/** Notify interested parties of a brand new change. */
-public class CreateChangeSender extends NewChangeSender {
-  public static interface Factory {
-    public CreateChangeSender create(Change change);
+public class TopicRestoredSender extends ReplyToTopicSender {
+  public static interface Factory extends
+      ReplyToTopicSender.Factory<TopicRestoredSender> {
+    TopicRestoredSender create(Topic t);
   }
 
-  private final GroupCache groupCache;
-
   @Inject
-  public CreateChangeSender(EmailArguments ea, SshInfo sshInfo,
-      GroupCache groupCache, @Assisted Change c) {
-    super(ea, sshInfo, c);
-    this.groupCache = groupCache;
+  public TopicRestoredSender(EmailArguments ea, @Assisted Topic t) {
+    super(ea, t, "restore");
   }
 
   @Override
   protected void init() throws EmailException {
     super.init();
 
-    bccWatchers();
+    ccAllApprovals();
+    bccStarredBy();
+    bccWatchesNotifyAllComments();
   }
 
-  private void bccWatchers() {
-    bccWatchers(groupCache, NotifyType.NEW_CHANGES);
+  @Override
+  protected void formatTopic() throws EmailException {
+    appendText(velocifyFile("TopicRestored.vm"));
   }
 }

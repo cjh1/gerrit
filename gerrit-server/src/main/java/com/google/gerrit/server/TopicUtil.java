@@ -26,8 +26,10 @@ import com.google.gerrit.reviewdb.ChangeSet;
 import com.google.gerrit.reviewdb.ChangeSetApproval;
 import com.google.gerrit.reviewdb.ChangeSetElement;
 import com.google.gerrit.reviewdb.ChangeSetInfo;
+import com.google.gerrit.reviewdb.PatchSet;
 import com.google.gerrit.reviewdb.PatchSetApproval;
 import com.google.gerrit.reviewdb.Project;
+import com.google.gerrit.reviewdb.RevId;
 import com.google.gerrit.reviewdb.ReviewDb;
 import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.reviewdb.TopicMessage;
@@ -523,4 +525,39 @@ public class TopicUtil {
 
     return r.toString();
   }
+
+  public static RevId getTopicTip(ReviewDb db, Topic t) throws OrmException {
+
+    // we need to find the RevId for the last patchset of the changeset ( the tip of the topic )
+    List<ChangeSetElement> currentChangeSetElements = db.changeSetElements().byChangeSet(t.currChangeSetId()).toList();
+
+    if(currentChangeSetElements.size() == 0)
+    {
+      currentChangeSetElements = db.changeSetElements().byChangeSet(t.currentChangeSetId()).toList();
+    }
+
+    RevId rev = getChangeSetTip(db, currentChangeSetElements);
+
+    return rev;
+  }
+
+  public static RevId getChangeSetTip(ReviewDb db, ChangeSet changeSet) throws OrmException {
+    return getChangeSetTip(db, db.changeSetElements().byChangeSet(changeSet.getId()).toList());
+  }
+
+  private static RevId getChangeSetTip(ReviewDb db,
+                                       List<ChangeSetElement> currentChangeSetElements) throws OrmException {
+    RevId rev = null;
+
+    if(currentChangeSetElements.size() > 0)
+    {
+      Change.Id lastChange = currentChangeSetElements.get(currentChangeSetElements.size()-1).getChangeId();
+      List<PatchSet> patchSets = db.patchSets().byChange(lastChange).toList();
+      PatchSet lastPatchSet = patchSets.get(patchSets.size()-1);
+      rev = lastPatchSet.getRevision();
+    }
+    return rev;
+  }
+
+
 }

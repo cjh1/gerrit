@@ -15,36 +15,34 @@
 package com.google.gerrit.server.mail;
 
 import com.google.gerrit.reviewdb.Change;
-import com.google.gerrit.reviewdb.AccountProjectWatch.NotifyType;
-import com.google.gerrit.server.account.GroupCache;
-import com.google.gerrit.server.ssh.SshInfo;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 
-
-/** Notify interested parties of a brand new change. */
-public class CreateChangeSender extends NewChangeSender {
-  public static interface Factory {
-    public CreateChangeSender create(Change change);
+/** Send notice about a change being abandoned by its owner. */
+public class TopicAbandonedSender extends ReplyToTopicSender {
+  public static interface Factory extends
+    ReplyToTopicSender.Factory<TopicAbandonedSender> {
+    TopicAbandonedSender create(Topic t);
   }
 
-  private final GroupCache groupCache;
-
   @Inject
-  public CreateChangeSender(EmailArguments ea, SshInfo sshInfo,
-      GroupCache groupCache, @Assisted Change c) {
-    super(ea, sshInfo, c);
-    this.groupCache = groupCache;
+  public TopicAbandonedSender(EmailArguments ea, @Assisted Topic t) {
+    super(ea, t, "abandon");
   }
 
   @Override
   protected void init() throws EmailException {
     super.init();
 
-    bccWatchers();
+    ccAllApprovals();
+    bccStarredBy();
+    bccWatchesNotifyAllComments();
   }
 
-  private void bccWatchers() {
-    bccWatchers(groupCache, NotifyType.NEW_CHANGES);
+  @Override
+  protected void formatTopic() throws EmailException {
+    appendText(velocifyFile("TopicAbandoned.vm"));
   }
+
 }

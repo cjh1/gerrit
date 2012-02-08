@@ -15,36 +15,27 @@
 package com.google.gerrit.server.mail;
 
 import com.google.gerrit.reviewdb.Change;
-import com.google.gerrit.reviewdb.AccountProjectWatch.NotifyType;
-import com.google.gerrit.server.account.GroupCache;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.server.ssh.SshInfo;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 
-
-/** Notify interested parties of a brand new change. */
-public class CreateChangeSender extends NewChangeSender {
+/** Asks a user to review a change. */
+public class AddTopicReviewerSender extends NewTopicSender {
   public static interface Factory {
-    public CreateChangeSender create(Change change);
+    AddTopicReviewerSender create(Change change);
   }
 
-  private final GroupCache groupCache;
-
   @Inject
-  public CreateChangeSender(EmailArguments ea, SshInfo sshInfo,
-      GroupCache groupCache, @Assisted Change c) {
-    super(ea, sshInfo, c);
-    this.groupCache = groupCache;
+  public AddTopicReviewerSender(EmailArguments ea, SshInfo sshInfo,
+      @Assisted Topic t) {
+    super(ea, sshInfo, t);
   }
 
   @Override
   protected void init() throws EmailException {
     super.init();
 
-    bccWatchers();
-  }
-
-  private void bccWatchers() {
-    bccWatchers(groupCache, NotifyType.NEW_CHANGES);
+    ccExistingReviewers();
   }
 }

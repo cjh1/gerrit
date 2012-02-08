@@ -33,6 +33,7 @@ import com.google.gerrit.server.patch.PatchSetInfoNotAvailableException;
 import com.google.gerrit.server.project.NoSuchChangeException;
 import com.google.gerrit.server.project.NoSuchTopicException;
 import com.google.gerrit.server.project.TopicControl;
+import com.google.gerrit.server.topic.ChangeSetInfoNotAvailableException;
 import com.google.gwtorm.client.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;

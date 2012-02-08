@@ -16,6 +16,7 @@ package com.google.gerrit.server.mail;
 
 import com.google.gerrit.reviewdb.Account;
 import com.google.gerrit.reviewdb.Change;
+import com.google.gerrit.reviewdb.Topic;
 import com.google.gerrit.server.ssh.SshInfo;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
@@ -27,18 +28,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Send notice of new patch sets for reviewers. */
-public class ReplacePatchSetSender extends ReplyToChangeSender {
+public class ReplaceChangeSetSender extends ReplyToTopicSender {
   public static interface Factory {
-    public ReplacePatchSetSender create(Change change);
+    public ReplaceChangeSetSender create(Change change);
   }
 
   private final Set<Account.Id> extraCC = new HashSet<Account.Id>();
   private final SshInfo sshInfo;
 
   @Inject
-  public ReplacePatchSetSender(EmailArguments ea, SshInfo si, @Assisted Change c) {
-    super(ea, c, "newpatchset");
+  public ReplaceChangeSetSender(EmailArguments ea, SshInfo si, @Assisted Topic c) {
+    super(ea, c, "newchangeset");
     sshInfo = si;
   }
 
@@ -61,8 +61,8 @@ public class ReplacePatchSetSender extends ReplyToChangeSender {
   }
 
   @Override
-  protected void formatChange() throws EmailException {
-    appendText(velocifyFile("ReplacePatchSet.vm"));
+  protected void formatTopic() throws EmailException {
+    appendText(velocifyFile("ReplaceChangeSet.vm"));
   }
 
   public String getSshHost() {
