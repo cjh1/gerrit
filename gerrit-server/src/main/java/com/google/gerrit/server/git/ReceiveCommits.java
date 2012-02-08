@@ -2318,25 +2318,7 @@ public class ReceiveCommits implements PreReceiveHook, PostReceiveHook {
   private void doTopicNotification(final Topic t) {
     try
     {
-      final ChangeSet cs = db.changeSets().get(t.currChangeSetId());
-
-      // we need to find the RevId for the last patchset of the changeset ( the tip of the topic )
-      List<ChangeSetElement> currentChangeSetElements = db.changeSetElements().byChangeSet(t.currChangeSetId()).toList();
-
-      if(currentChangeSetElements.size() == 0)
-      {
-        currentChangeSetElements = db.changeSetElements().byChangeSet(t.currentChangeSetId()).toList();
-      }
-
-      RevId rev = null;
-
-      if(currentChangeSetElements.size() > 0)
-      {
-        Change.Id lastChange = currentChangeSetElements.get(currentChangeSetElements.size()-1).getChangeId();
-        List<PatchSet> patchSets = db.patchSets().byChange(lastChange).toList();
-        PatchSet lastPatchSet = patchSets.get(patchSets.size()-1);
-        rev = lastPatchSet.getRevision();
-      }
+      RevId rev = TopicUtil.getTopicTip(db, t);
 
       hooks.doChangesetCreatedHook(t, db.changeSets().get(t.currentChangeSetId()), rev);
 

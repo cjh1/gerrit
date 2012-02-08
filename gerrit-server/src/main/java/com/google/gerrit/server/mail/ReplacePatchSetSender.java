@@ -22,7 +22,6 @@ import com.google.inject.assistedinject.Assisted;
 
 import com.jcraft.jsch.HostKey;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -34,7 +33,6 @@ public class ReplacePatchSetSender extends ReplyToChangeSender {
     public ReplacePatchSetSender create(Change change);
   }
 
-  private final Set<Account.Id> reviewers = new HashSet<Account.Id>();
   private final Set<Account.Id> extraCC = new HashSet<Account.Id>();
   private final SshInfo sshInfo;
 
@@ -42,10 +40,6 @@ public class ReplacePatchSetSender extends ReplyToChangeSender {
   public ReplacePatchSetSender(EmailArguments ea, SshInfo si, @Assisted Change c) {
     super(ea, c, "newpatchset");
     sshInfo = si;
-  }
-
-  public void addReviewers(final Collection<Account.Id> cc) {
-    reviewers.addAll(cc);
   }
 
   public void addExtraCC(final Collection<Account.Id> cc) {
@@ -69,17 +63,6 @@ public class ReplacePatchSetSender extends ReplyToChangeSender {
   @Override
   protected void formatChange() throws EmailException {
     appendText(velocifyFile("ReplacePatchSet.vm"));
-  }
-
-  public List<String> getReviewerNames() {
-    if (reviewers.isEmpty()) {
-      return null;
-    }
-    List<String> names = new ArrayList<String>();
-    for (Account.Id id : reviewers) {
-      names.add(getNameFor(id));
-    }
-    return names;
   }
 
   public String getSshHost() {

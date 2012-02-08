@@ -23,6 +23,8 @@ import com.google.gerrit.reviewdb.ChangeSetElement;
 import com.google.gerrit.reviewdb.ReviewDb;
 import com.google.gerrit.server.project.NoSuchTopicException;
 import com.google.gerrit.server.project.TopicControl;
+import com.google.gerrit.server.topic.ChangeSetInfoFactory;
+import com.google.gerrit.server.topic.ChangeSetInfoNotAvailableException;
 import com.google.gwtorm.client.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;

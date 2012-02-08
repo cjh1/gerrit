@@ -15,6 +15,7 @@
 package com.google.gerrit.server.mail;
 
 import com.google.gerrit.reviewdb.Account;
+import com.google.gerrit.reviewdb.Account.Id;
 import com.google.gerrit.reviewdb.Change;
 import com.google.gerrit.server.ssh.SshInfo;
 
@@ -29,7 +30,6 @@ import java.util.Set;
 /** Sends an email alerting a user to a new change for them to review. */
 public abstract class NewChangeSender extends ChangeEmail {
   private final SshInfo sshInfo;
-  private final Set<Account.Id> reviewers = new HashSet<Account.Id>();
   private final Set<Account.Id> extraCC = new HashSet<Account.Id>();
 
   protected NewChangeSender(EmailArguments ea, SshInfo sshInfo, Change c) {

@@ -30,6 +30,7 @@ import com.google.gerrit.server.project.ChangeControl;
 import com.google.gerrit.server.project.NoSuchChangeException;
 import com.google.gerrit.server.project.NoSuchTopicException;
 import com.google.gerrit.server.project.TopicControl;
+import com.google.gerrit.server.topic.ChangeSetInfoNotAvailableException;
 import com.google.gerrit.server.workflow.TopicFunctionState;
 import com.google.gwtorm.client.OrmException;
 import com.google.inject.Inject;

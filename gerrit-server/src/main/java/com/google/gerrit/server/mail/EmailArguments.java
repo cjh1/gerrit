@@ -28,6 +28,9 @@ import com.google.gerrit.server.patch.PatchSetInfoFactory;
 import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.query.change.ChangeQueryBuilder;
 import com.google.gerrit.server.query.change.ChangeQueryRewriter;
+import com.google.gerrit.server.query.topic.TopicQueryBuilder;
+import com.google.gerrit.server.query.topic.TopicQueryRewriter;
+import com.google.gerrit.server.topic.ChangeSetInfoFactory;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
@@ -42,12 +45,15 @@ class EmailArguments {
   final FromAddressGenerator fromAddressGenerator;
   final EmailSender emailSender;
   final PatchSetInfoFactory patchSetInfoFactory;
+  final ChangeSetInfoFactory changeSetInfoFactory;
   final IdentifiedUser.GenericFactory identifiedUserFactory;
   final Provider<String> urlProvider;
   final AllProjectsName allProjectsName;
 
-  final ChangeQueryBuilder.Factory queryBuilder;
-  final Provider<ChangeQueryRewriter> queryRewriter;
+  final ChangeQueryBuilder.Factory changeQueryBuilder;
+  final Provider<ChangeQueryRewriter> changeQueryRewriter;
+  final TopicQueryBuilder.Factory topicQueryBuilder;
+  final Provider<TopicQueryRewriter> topicQueryRewriter;
   final Provider<ReviewDb> db;
   final SitePaths site;
 
@@ -56,11 +62,12 @@ class EmailArguments {
       GroupCache groupCache, AccountCache accountCache,
       PatchListCache patchListCache, FromAddressGenerator fromAddressGenerator,
       EmailSender emailSender, PatchSetInfoFactory patchSetInfoFactory,
-      GenericFactory identifiedUserFactory,
+      ChangeSetInfoFactory changeSetInfoFactory, GenericFactory identifiedUserFactory,
       @CanonicalWebUrl @Nullable Provider<String> urlProvider,
       AllProjectsName allProjectsName,
       ChangeQueryBuilder.Factory queryBuilder,
-      Provider<ChangeQueryRewriter> queryRewriter, Provider<ReviewDb> db,
+      Provider<ChangeQueryRewriter> queryRewriter, TopicQueryBuilder.Factory topicQueryBuilder,
+      Provider<TopicQueryRewriter> topicQueryRewriter, Provider<ReviewDb> db,
       SitePaths site) {
     this.server = server;
     this.projectCache = projectCache;
@@ -70,11 +77,15 @@ class EmailArguments {
     this.fromAddressGenerator = fromAddressGenerator;
     this.emailSender = emailSender;
     this.patchSetInfoFactory = patchSetInfoFactory;
+    this.changeSetInfoFactory = changeSetInfoFactory;
     this.identifiedUserFactory = identifiedUserFactory;
     this.urlProvider = urlProvider;
     this.allProjectsName = allProjectsName;
-    this.queryBuilder = queryBuilder;
-    this.queryRewriter = queryRewriter;
+    this.changeQueryBuilder = queryBuilder;
+    this.changeQueryRewriter = queryRewriter;
+    this.topicQueryBuilder = topicQueryBuilder;
+    this.topicQueryRewriter = topicQueryRewriter;
+
     this.db = db;
     this.site = site;
   }
