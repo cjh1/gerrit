@@ -16,6 +16,8 @@ package com.google.gerrit.common;
 
 import com.google.gerrit.common.data.ApprovalType;
 import com.google.gerrit.common.data.ApprovalTypes;
+import com.google.gerrit.lifecycle.LifecycleListener;
+import com.google.gerrit.lifecycle.LifecycleModule;
 import com.google.gerrit.reviewdb.Account;
 import com.google.gerrit.reviewdb.ApprovalCategory;
 import com.google.gerrit.reviewdb.ApprovalCategoryValue;
@@ -42,6 +44,7 @@ import com.google.gerrit.server.events.PatchSetCreatedEvent;
 import com.google.gerrit.server.events.RefUpdatedEvent;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.git.WorkQueue;
+import com.google.gerrit.server.git.WorkQueue.Executor;
 import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.project.ProjectControl;
 import com.google.gerrit.server.project.ProjectState;
@@ -80,15 +83,16 @@ import java.util.concurrent.TimeoutException;
 
 /** Spawns local executables when a hook action occurs. */
 @Singleton
-public class ChangeHookRunner implements ChangeHooks {
+public class ChangeHookRunner implements ChangeHooks, LifecycleListener {
     /** A logger for this class. */
     private static final Logger log = LoggerFactory.getLogger(ChangeHookRunner.class);
 
-    public static class Module extends AbstractModule {
+    public static class Module extends LifecycleModule {
       @Override
       protected void configure() {
         bind(ChangeHookRunner.class);
         bind(ChangeHooks.class).to(ChangeHookRunner.class);
+        listener().to(ChangeHookRunner.class);
       }
     }
 
@@ -521,6 +525,7 @@ public class ChangeHookRunner implements ChangeHooks {
   }
 
   private HookResult runSyncHook(Project.NameKey project, File hook, List<String> args) throws TimeoutException {
+    HookResult result = null;
     if (hook.exists()) {
 
       SyncHookTask syncHook = new SyncHookTask(project, hook, args);
@@ -529,7 +534,7 @@ public class ChangeHookRunner implements ChangeHooks {
       syncHookThreadPool.execute(task);
 
       try {
-        return task.get(syncHookTimeout, TimeUnit.SECONDS);
+        task.get(syncHookTimeout, TimeUnit.SECONDS);
       } catch (InterruptedException e) {
         log.error("Error running hook " + hook.getAbsolutePath(), e);
       } catch (ExecutionException e) {
@@ -537,16 +542,18 @@ public class ChangeHookRunner implements ChangeHooks {
       } catch (TimeoutException e) {
         task.cancel(true);
         log.error("Synchronous hook timed out "  + hook.getAbsolutePath());
-        throw e;
+      } finally {
+        result = syncHook.getResult();
       }
+
     }
 
-    return null;
+    return result;
   }
 
   /** Container class used to hold the return code and output of script hook exection */
   public final class HookResult {
-    private int exitValue;
+    private int exitValue = -1;
     private String output;
 
     private HookResult(int exitValue, String output) {
@@ -554,9 +561,18 @@ public class ChangeHookRunner implements ChangeHooks {
       this.output = output;
     }
 
+    private HookResult(String output) {
+      this.output = output;
+    }
+
     public int getExitValue() {
       return exitValue;
     }
+
+    public void setExitValue(int exitValue) {
+      this.exitValue = exitValue;
+    }
+
     public String getOutput() {
       return output;
     }
@@ -566,6 +582,7 @@ public class ChangeHookRunner implements ChangeHooks {
     private final  Project.NameKey project;
     private final File hook;
     private final List<String> args;
+    private HookResult result;
 
     protected HookTask( Project.NameKey project, File hook, List<String> args) {
       this.project = project;
@@ -573,8 +590,11 @@ public class ChangeHookRunner implements ChangeHooks {
       this.args = args;
     }
 
+    public HookResult getResult() {
+      return result;
+    }
+
     protected HookResult runHook() {
-      HookResult result = null;
       Repository repo = null;
       try {
 
@@ -598,15 +618,16 @@ public class ChangeHookRunner implements ChangeHooks {
         Process ps = pb.start();
         ps.getOutputStream().close();
         InputStream is = ps.getInputStream();
+        String output = null;
         try {
-          String output = readOutput(is);
-          result = new HookResult(ps.exitValue(), output);
+          output = readOutput(is);
         } finally {
           try {
             is.close();
           } catch (IOException closeErr) {
           }
           ps.waitFor();
+          result = new HookResult(ps.exitValue(), output);
         }
       } catch (Throwable err) {
         log.error("Error running hook " + hook.getAbsolutePath(), err);
@@ -634,7 +655,6 @@ public class ChangeHookRunner implements ChangeHooks {
     }
 
     private String readOutput(InputStream is) throws IOException {
-
       StringWriter output = new StringWriter();
       InputStreamReader input = new InputStreamReader(is);
       char[] buffer = new char[4096];
@@ -680,5 +700,22 @@ public class ChangeHookRunner implements ChangeHooks {
     public void run() {
       super.runHook();
     }
+  }
+
+  @Override
+  public void start() {
+  }
+
+  @Override
+  public void stop() {
+    syncHookThreadPool.shutdown();
+    boolean isTerminated;
+    do {
+      try {
+        isTerminated = syncHookThreadPool.awaitTermination(10, TimeUnit.SECONDS);
+      } catch (InterruptedException ie) {
+        isTerminated = false;
+      }
+    } while (!isTerminated);
   }
 }
