@@ -25,10 +25,13 @@ import com.google.gerrit.reviewdb.ChangeSetElement;
 import com.google.gerrit.reviewdb.Project;
 import com.google.gerrit.reviewdb.ReviewDb;
 import com.google.gerrit.reviewdb.Topic;
+import com.google.gerrit.reviewdb.Project.SubmitType;
 import com.google.gerrit.server.CurrentUser;
 import com.google.gerrit.server.IdentifiedUser;
+import com.google.gerrit.server.workflow.CategoryFunction;
 import com.google.gerrit.server.workflow.TopicCategoryFunction;
 import com.google.gerrit.server.workflow.TopicFunctionState;
+import com.google.gerrit.server.workflow.TopicNoBlock;
 import com.google.gwtorm.client.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -276,23 +279,36 @@ public class TopicControl {
 
     List<SubmitRecord.Label> labels = new ArrayList<SubmitRecord.Label>();
     SubmitRecord rec = new SubmitRecord();
-    rec.status = SubmitRecord.Status.NOT_READY;
+
+    if(doSubmit) {
+      rec.status = SubmitRecord.Status.OK;
+    } else {
+      rec.status = SubmitRecord.Status.NOT_READY;
+    }
+
     for (ApprovalType type : approvalTypes.getApprovalTypes()) {
-      TopicCategoryFunction.forCategory(type.getCategory()).run(type, fs);
+
+      TopicCategoryFunction function = TopicCategoryFunction.forCategory(type.getCategory());
+      function.run(type, fs);
       SubmitRecord.Label label = new SubmitRecord.Label();
       label.label = type.getCategory().getLabelName();
-      label.status = SubmitRecord.Label.Status.NEED;
+      if(fs.isValid(type)) {
+        label.status = SubmitRecord.Label.Status.OK;
+      } else {
+        label.status = SubmitRecord.Label.Status.NEED;
+        rec.status = SubmitRecord.Status.NOT_READY;
+      }
       labels.add(label);
       for (final ChangeSetApproval csa : fs.getApprovals(type)) {
         if (!fs.isValid(type)) {
-          rec.status = SubmitRecord.Status.NOT_READY;
           if (type.isMaxNegative(csa)) {
             label.status = SubmitRecord.Label.Status.REJECT;
             label.appliedBy = csa.getAccountId();
           }
         } else {
+          label.status = SubmitRecord.Label.Status.OK;
+
           if (type.isMaxPositive(csa)) {
-            label.status = SubmitRecord.Label.Status.OK;
             label.appliedBy = csa.getAccountId();
           }
         }
@@ -301,15 +317,6 @@ public class TopicControl {
 
     rec.labels = labels;
 
-    if (doSubmit) {
-      rec.status = SubmitRecord.Status.OK;
-      for (SubmitRecord.Label lbl : labels) {
-        if (!lbl.status.equals(SubmitRecord.Label.Status.OK)) {
-          rec.status = SubmitRecord.Status.NOT_READY;
-          break;
-        }
-      }
-    } else rec.status = SubmitRecord.Status.NOT_READY;
     return Collections.singletonList(rec);
   }
 }
