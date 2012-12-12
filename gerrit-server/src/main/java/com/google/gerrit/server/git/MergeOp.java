@@ -133,6 +133,8 @@ public class MergeOp {
   private static final long DEPENDENCY_DELAY =
       MILLISECONDS.convert(15, MINUTES);
 
+  private static final int MAX_COMMITS_IN_TOPIC_MERGE_MESSAGE = 16;
+
   private final GitRepositoryManager repoManager;
   private final SchemaFactory<ReviewDb> schemaFactory;
   private final ProjectCache projectCache;
@@ -598,7 +600,10 @@ public class MergeOp {
     msgbuf.append(c.change.getDest().getShortName());
     msgbuf.append("\n\n");
 
-    for (final Iterator<CodeReviewCommit> i = merged.iterator(); i.hasNext();) {
+    int commitCount = 0;
+    final Iterator<CodeReviewCommit> i;
+    for (i = merged.iterator();
+        i.hasNext() && commitCount < MAX_COMMITS_IN_TOPIC_MERGE_MESSAGE;) {
       final CodeReviewCommit currentCommit = i.next();
       msgbuf.append(currentCommit.getId().getName().substring(0, 8));
       msgbuf.append(" ");
@@ -606,7 +611,12 @@ public class MergeOp {
       if (i.hasNext()) {
         msgbuf.append('\n');
       }
+      commitCount++;
     }
+
+    if(i.hasNext())
+      msgbuf.append("...");
+
     return msgbuf.toString();
   }
   private String createMergeCommitMessage(
