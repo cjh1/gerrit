@@ -39,7 +39,7 @@ public class TopicQueryScreen extends PagedSingleListScreen {
   private final String originalQuery;
 
   public TopicQueryScreen(final String encQuery, final String positionToken) {
-    super("/tq/" + encQuery, positionToken);
+    super("/q/" + encQuery, positionToken);
     originalQuery = KeyUtil.decode(encQuery);
     query = originalQuery.replace(ENTITY_TOPIC, "");
   }
